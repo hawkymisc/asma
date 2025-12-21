@@ -107,3 +107,86 @@ class TestMainCLI:
 
         # Then: should show usage message (click behavior)
         assert "Usage:" in result.output
+
+
+class TestInstallCommand:
+    """Test 'asma install' command."""
+
+    def test_install_from_skillset(self):
+        """Test installing skills from skillset.yaml."""
+        # Given: skillset.yaml with a local skill
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            # Create source skill
+            source_dir = fs_path / "my-skill"
+            source_dir.mkdir()
+            (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: A test skill for installation
+---
+# Test Skill
+""")
+
+            # Create skillset.yaml
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text(f"""
+global:
+  - name: test-skill
+    source: local:{source_dir}
+""")
+
+            # When: we run 'asma install'
+            result = runner.invoke(cli, ['install'])
+
+            # Then: should succeed
+            assert result.exit_code == 0
+            assert "test-skill" in result.output
+            assert "Successfully installed" in result.output or "✓" in result.output
+
+    def test_install_no_skillset_file(self):
+        """Test that install fails if skillset.yaml not found."""
+        # Given: no skillset.yaml
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            # When: we run 'asma install'
+            result = runner.invoke(cli, ['install'])
+
+            # Then: should fail with helpful message
+            assert result.exit_code != 0
+            assert "skillset.yaml" in result.output.lower()
+            assert "not found" in result.output.lower()
+
+    def test_install_with_custom_file(self):
+        """Test installing from custom file path."""
+        # Given: custom skillset file
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            source_dir = fs_path / "my-skill"
+            source_dir.mkdir()
+            (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test
+---
+# Test
+""")
+
+            custom_file = fs_path / "custom.yaml"
+            custom_file.write_text(f"""
+global:
+  - name: test-skill
+    source: local:{source_dir}
+""")
+
+            # When: we run with --file option
+            result = runner.invoke(cli, ['install', '--file', str(custom_file)])
+
+            # Then: should succeed
+            assert result.exit_code == 0
+
