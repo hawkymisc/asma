@@ -9,9 +9,9 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 - ✅ `asma install` - Install skills from skillset
 - ✅ `asma version` - Show version
 - ✅ Local filesystem sources (`local:`)
+- ✅ GitHub sources (`github:`)
 - ✅ SKILL.md validation
 - ✅ Global and project scopes
-- 🚧 GitHub sources (`github:`) - Coming soon
 - 🚧 Lock file management - Coming soon
 
 ## Features
@@ -81,6 +81,10 @@ global:
   - name: my-skill
     source: local:~/my-skills/my-skill
 
+  - name: github-skill
+    source: github:owner/repo
+    version: v1.0.0
+
 # Project skills (installed to .claude/skills/)
 project:
   - name: team-skill
@@ -124,6 +128,41 @@ project:
   - name: test-runner
     source: local:./local-skills/test-runner
 ```
+
+## Source Types
+
+### Local Source (`local:`)
+
+Install skills from local filesystem:
+
+```yaml
+- name: my-skill
+  source: local:~/skills/my-skill      # Absolute path
+  source: local:./skills/my-skill      # Relative path
+```
+
+### GitHub Source (`github:`)
+
+Install skills from GitHub repositories:
+
+```yaml
+- name: skill-name
+  source: github:owner/repo            # Repository root
+  source: github:owner/repo/subdir     # Subdirectory
+
+# Version/ref specification
+- name: skill-with-version
+  source: github:owner/repo
+  version: v1.0.0                      # Specific tag
+  version: latest                      # Latest release
+
+- name: skill-with-ref
+  source: github:owner/repo
+  ref: main                            # Branch
+  ref: abc1234                         # Commit SHA
+```
+
+**Authentication**: Set `GITHUB_TOKEN` environment variable for private repositories.
 
 ## Commands
 
@@ -223,15 +262,16 @@ pytest tests/test_validator.py -v
 
 ### Test Coverage
 
-**Current**: 43 tests, 87% coverage
+**Current**: 79 tests
 
 | Module | Coverage | Tests |
 |--------|----------|-------|
 | validator | 89% | 6 |
 | models/skill | 88% | 7 |
 | core/config | 96% | 9 |
-| cli/main | 86% | 9 |
+| cli/main | 86% | 14 |
 | sources/local | 91% | 6 |
+| sources/github | - | 31 |
 | core/installer | 94% | 6 |
 
 ### TDD Approach
@@ -253,11 +293,11 @@ This project follows Kent Beck's Test-Driven Development methodology:
 - [x] SKILL.md validator
 - [x] Skill and Skillset models
 - [x] Local source handler
+- [x] GitHub source handler
 - [x] Skill installer
 - [x] CLI commands (init, version, install)
 
 ### 🚧 Next Steps
-- [ ] GitHub source handler (`github:user/repo`)
 - [ ] Lock file management (`skillset.lock`)
 - [ ] `asma list` command
 - [ ] `asma update` command
