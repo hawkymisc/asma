@@ -27,13 +27,41 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 
 ### 1. Installation
 
+#### Option A: pipx (Recommended)
+
+```bash
+# Install pipx if not already installed
+pip install pipx
+pipx ensurepath
+
+# Install asma globally
+pipx install git+https://github.com/hawkymisc/asma.git
+
+# Or from local clone
+git clone https://github.com/hawkymisc/asma.git
+cd asma
+pipx install .
+```
+
+#### Option B: pip (Development)
+
 ```bash
 # Clone the repository
 git clone https://github.com/hawkymisc/asma.git
 cd asma
 
-# Install with pip
+# Install with pip (editable mode for development)
 pip install -e .
+```
+
+#### Uninstall
+
+```bash
+# If installed with pipx
+pipx uninstall asma
+
+# If installed with pip
+pip uninstall asma
 ```
 
 ### 2. Initialize Project
