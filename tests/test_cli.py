@@ -1,6 +1,9 @@
 """Tests for CLI commands."""
+import io
+import tarfile
 import pytest
 from pathlib import Path
+from unittest.mock import patch
 from click.testing import CliRunner
 from asma.cli.main import cli
 from asma import __version__
@@ -130,10 +133,10 @@ description: A test skill for installation
 # Test Skill
 """)
 
-            # Create skillset.yaml
+            # Create skillset.yaml (use project scope to stay within isolated filesystem)
             skillset = fs_path / "skillset.yaml"
             skillset.write_text(f"""
-global:
+project:
   - name: test-skill
     source: local:{source_dir}
 """)
@@ -179,7 +182,7 @@ description: Test
 
             custom_file = fs_path / "custom.yaml"
             custom_file.write_text(f"""
-global:
+project:
   - name: test-skill
     source: local:{source_dir}
 """)
@@ -189,4 +192,162 @@ global:
 
             # Then: should succeed
             assert result.exit_code == 0
+
+    def test_install_unsupported_source(self):
+        """Test that unsupported source types are handled gracefully."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: unknown:some/path
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            # Should fail with invalid source format error
+            # (Skill model validates source prefix at load time)
+            assert "invalid source format" in result.output.lower()
+
+
+class TestInstallCommandGitHub:
+    """Test 'asma install' command with GitHub sources."""
+
+    def _create_mock_tarball(self) -> bytes:
+        """Create a mock tarball with SKILL.md."""
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+            dir_info = tarfile.TarInfo(name="repo-main/")
+            dir_info.type = tarfile.DIRTYPE
+            dir_info.mode = 0o755
+            tar.addfile(dir_info)
+
+            skill_content = b"---\nname: test-skill\ndescription: Test\n---\n# Test"
+            skill_info = tarfile.TarInfo(name="repo-main/SKILL.md")
+            skill_info.size = len(skill_content)
+            skill_info.mode = 0o644
+            tar.addfile(skill_info, io.BytesIO(skill_content))
+
+        return tar_buffer.getvalue()
+
+    def test_install_github_source(self, requests_mock):
+        """Test installing skill from GitHub source."""
+        runner = CliRunner()
+
+        # Mock GitHub API
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo",
+            json={"default_branch": "main"}
+        )
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo/tarball/main",
+            content=self._create_mock_tarball()
+        )
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: github:owner/repo
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "test-skill" in result.output
+
+    def test_install_github_with_ref(self, requests_mock):
+        """Test installing skill from GitHub with specific ref."""
+        runner = CliRunner()
+
+        # Mock GitHub API (no need to mock repo endpoint when ref is specified)
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo/tarball/v1.0.0",
+            content=self._create_mock_tarball()
+        )
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: github:owner/repo
+    version: v1.0.0
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "test-skill" in result.output
+
+    def test_install_github_repo_not_found(self, requests_mock):
+        """Test handling GitHub repo not found."""
+        runner = CliRunner()
+
+        requests_mock.get(
+            "https://api.github.com/repos/nonexistent/repo",
+            status_code=404,
+            json={"message": "Not Found"}
+        )
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: github:nonexistent/repo
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            # Should complete but report failure
+            assert "Failed" in result.output or "✗" in result.output
+
+    def test_install_github_with_token(self, requests_mock):
+        """Test that GITHUB_TOKEN environment variable is used."""
+        runner = CliRunner()
+
+        requests_mock.get(
+            "https://api.github.com/repos/owner/private-repo",
+            json={"default_branch": "main"}
+        )
+        requests_mock.get(
+            "https://api.github.com/repos/owner/private-repo/tarball/main",
+            content=self._create_mock_tarball()
+        )
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: github:owner/private-repo
+""")
+
+            # Run with GITHUB_TOKEN environment variable
+            result = runner.invoke(
+                cli,
+                ['install'],
+                env={"GITHUB_TOKEN": "test-token"}
+            )
+
+            assert result.exit_code == 0
+
+            # Verify token was used in requests
+            for request in requests_mock.request_history:
+                if "api.github.com" in request.url:
+                    assert request.headers.get("Authorization") == "token test-token"
 

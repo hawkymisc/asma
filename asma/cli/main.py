@@ -75,9 +75,11 @@ def version() -> None:
 @click.option('--force', is_flag=True, help='Reinstall even if already installed')
 def install(skillset_file: str, scope: str, force: bool) -> None:
     """Install skills from skillset.yaml."""
+    import os
     from asma.core.config import load_skillset
     from asma.core.installer import SkillInstaller
     from asma.core.sources.local import LocalSourceHandler
+    from asma.core.sources.github import GitHubSourceHandler
     from asma.models.skill import SkillScope
 
     skillset_path = Path(skillset_file)
@@ -126,10 +128,12 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
         else:
             install_base = Path.cwd() / ".claude/skills"
 
-        # Get source handler (for now, only local)
-        # TODO: Add GitHub handler
+        # Get source handler
         if skill.source.startswith("local:"):
             source_handler = LocalSourceHandler()
+        elif skill.source.startswith("github:"):
+            token = os.environ.get("GITHUB_TOKEN")
+            source_handler = GitHubSourceHandler(token=token)
         else:
             click.echo(
                 click.style(f"✗ {skill.name}", fg="yellow") +
