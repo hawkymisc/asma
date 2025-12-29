@@ -239,6 +239,44 @@ Detailed instructions for Claude...
 - `name`: lowercase letters, numbers, and hyphens only (e.g., `my-skill-123`)
 - `description`: non-empty string describing the skill's purpose
 
+## Lock File (`skillset.lock`)
+
+The `skillset.lock` file is **auto-generated** when you run `asma install` and ensures reproducible skill installations.
+
+**Purpose**:
+- 🔒 Records exact versions and checksums of installed skills
+- 📌 Guarantees consistent environments across team members
+- ✅ Tracks installation metadata for integrity verification
+
+**Format** (auto-generated - do not edit manually):
+```yaml
+version: 1
+generated_at: "2025-12-29T12:00:00Z"
+skills:
+  global:
+    my-skill:
+      source: github:owner/repo
+      resolved_version: v1.2.3
+      resolved_commit: abc123def456
+      installed_at: "2025-12-29T11:59:30Z"
+      checksum: sha256:9f86d081884c7d659a2feaa0...
+
+  project:
+    team-skill:
+      source: local:/path/to/skill
+      resolved_version: local@def456ab
+      resolved_commit: def456ab
+      installed_at: "2025-12-29T12:00:15Z"
+      checksum: sha256:5e884898da28047...
+      symlink: true
+      resolved_path: /path/to/skill
+```
+
+**Best Practices**:
+- ✅ **Commit `skillset.lock`** to version control (like `package-lock.json`)
+- ✅ **Run `asma install`** after pulling changes to sync with locked versions
+- ❌ **Don't edit manually** - let asma manage it
+
 ## Development
 
 ### Setup
@@ -299,7 +337,7 @@ This project follows Kent Beck's Test-Driven Development methodology:
 - [x] CLI commands (init, version, install)
 
 ### 🚧 Next Steps
-- [ ] Lock file management (`skillset.lock`)
+- [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
 - [ ] `asma list` command
 - [ ] `asma update` command
 - [ ] `asma uninstall` command
