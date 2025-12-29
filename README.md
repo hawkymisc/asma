@@ -12,11 +12,12 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 - ✅ GitHub sources (`github:`)
 - ✅ SKILL.md validation
 - ✅ Global and project scopes
-- 🚧 Lock file management - Coming soon
+- ✅ Lock file management (`skillset.lock`)
 
 ## Features
 
 - 📦 **Declarative Configuration**: Define skills in `skillset.yaml`
+- 🔒 **Lock File Management**: Auto-generated `skillset.lock` ensures reproducible installs
 - 🌍 **Multi-Scope Support**: Global (`~/.claude/skills/`) and project (`.claude/skills/`) scopes
 - ⚡ **Simple CLI**: Intuitive commands for skill management
 - ✅ **Validation**: Verify SKILL.md structure and metadata

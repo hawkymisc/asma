@@ -76,12 +76,14 @@ def version() -> None:
 def install(skillset_file: str, scope: str, force: bool) -> None:
     """Install skills from skillset.yaml."""
     import os
+    from datetime import datetime
     from asma.core.config import load_skillset
     from asma.core.installer import SkillInstaller
     from asma.core.sources.base import SourceHandler
     from asma.core.sources.local import LocalSourceHandler
     from asma.core.sources.github import GitHubSourceHandler
     from asma.models.skill import SkillScope
+    from asma.models.lock import Lockfile, LockEntry
 
     skillset_path = Path(skillset_file)
 
@@ -114,6 +116,10 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
     if not skills_to_install:
         click.echo("No skills to install.")
         return
+
+    # Load existing lock file
+    lock_path = skillset_path.parent / "skillset.lock"
+    lockfile = Lockfile.load(lock_path)
 
     # Install skills
     installer = SkillInstaller()
@@ -158,12 +164,31 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
                 f" ({skill.scope.value})"
             )
             success_count += 1
+
+            # Add to lock file
+            if result.checksum:  # Only add if we have valid install info
+                lock_entry = LockEntry(
+                    name=skill.name,
+                    scope=skill.scope,
+                    source=skill.source,
+                    resolved_version=result.version or "unknown",
+                    resolved_commit=result.resolved_commit or "unknown",
+                    installed_at=datetime.now(),
+                    checksum=result.checksum,
+                    symlink=result.symlink,
+                    resolved_path=result.resolved_path
+                )
+                lockfile.add_entry(lock_entry)
         else:
             click.echo(
                 click.style(f"✗ {skill.name}", fg="red") +
                 f" - {result.error}"
             )
             fail_count += 1
+
+    # Save lock file
+    if success_count > 0:
+        lockfile.save(lock_path)
 
     # Summary
     click.echo()

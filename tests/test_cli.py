@@ -250,6 +250,47 @@ global:
             assert result.exit_code == 0
             assert "unsupported source" in result.output
 
+    def test_install_creates_lock_file(self):
+        """Test that install command creates skillset.lock."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            # Create a local skill
+            source_dir = fs_path / "source"
+            source_dir.mkdir()
+            (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test skill
+---
+# Test Skill
+""")
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text(f"""
+project:
+  - name: test-skill
+    source: local:{source_dir}
+""")
+
+            result = runner.invoke(cli, ['install', '--force'])
+
+            # Should succeed
+            assert result.exit_code == 0
+            assert "✓ test-skill" in result.output
+
+            # Lock file should be created
+            lock_file = fs_path / "skillset.lock"
+            assert lock_file.exists()
+
+            # Lock file should contain the skill
+            lock_content = lock_file.read_text()
+            assert "test-skill" in lock_content
+            assert "local:" in lock_content
+            assert "checksum:" in lock_content
+            assert "symlink: true" in lock_content
+
 
 class TestInstallCommandGitHub:
     """Test 'asma install' command with GitHub sources."""
