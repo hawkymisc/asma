@@ -7,16 +7,18 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 **MVP Core Features Complete** ✅
 - ✅ `asma init` - Initialize skillset.yaml
 - ✅ `asma install` - Install skills from skillset
+- ✅ `asma list` - List installed skills
 - ✅ `asma version` - Show version
 - ✅ Local filesystem sources (`local:`)
 - ✅ GitHub sources (`github:`)
 - ✅ SKILL.md validation
 - ✅ Global and project scopes
-- 🚧 Lock file management - Coming soon
+- ✅ Lock file management (`skillset.lock`)
 
 ## Features
 
 - 📦 **Declarative Configuration**: Define skills in `skillset.yaml`
+- 🔒 **Lock File Management**: Auto-generated `skillset.lock` ensures reproducible installs
 - 🌍 **Multi-Scope Support**: Global (`~/.claude/skills/`) and project (`.claude/skills/`) scopes
 - ⚡ **Simple CLI**: Intuitive commands for skill management
 - ✅ **Validation**: Verify SKILL.md structure and metadata
@@ -201,6 +203,37 @@ asma install --file custom-skills.yaml
 asma install --force
 ```
 
+### `asma list`
+List installed skills from skillset.lock.
+
+**Options**:
+- `--scope <global|project>` - Filter by scope
+
+**Examples**:
+```bash
+# List all installed skills
+asma list
+
+# List only global skills
+asma list --scope global
+
+# List only project skills
+asma list --scope project
+```
+
+**Output Example**:
+```
+Global Skills:
+  • document-analyzer
+    Source: github:anthropics/skills/document-analyzer
+    Version: v1.0.0
+
+Project Skills:
+  • test-runner
+    Source: local:/path/to/skills/test-runner
+    Version: local@abc123
+```
+
 ### `asma version`
 Show asma version.
 
@@ -238,6 +271,44 @@ Detailed instructions for Claude...
 - `name`: lowercase letters, numbers, and hyphens only (e.g., `my-skill-123`)
 - `description`: non-empty string describing the skill's purpose
 
+## Lock File (`skillset.lock`)
+
+The `skillset.lock` file is **auto-generated** when you run `asma install` and ensures reproducible skill installations.
+
+**Purpose**:
+- 🔒 Records exact versions and checksums of installed skills
+- 📌 Guarantees consistent environments across team members
+- ✅ Tracks installation metadata for integrity verification
+
+**Format** (auto-generated - do not edit manually):
+```yaml
+version: 1
+generated_at: "2025-12-29T12:00:00Z"
+skills:
+  global:
+    my-skill:
+      source: github:owner/repo
+      resolved_version: v1.2.3
+      resolved_commit: abc123def456
+      installed_at: "2025-12-29T11:59:30Z"
+      checksum: sha256:9f86d081884c7d659a2feaa0...
+
+  project:
+    team-skill:
+      source: local:/path/to/skill
+      resolved_version: local@def456ab
+      resolved_commit: def456ab
+      installed_at: "2025-12-29T12:00:15Z"
+      checksum: sha256:5e884898da28047...
+      symlink: true
+      resolved_path: /path/to/skill
+```
+
+**Best Practices**:
+- ✅ **Commit `skillset.lock`** to version control (like `package-lock.json`)
+- ✅ **Run `asma install`** after pulling changes to sync with locked versions
+- ❌ **Don't edit manually** - let asma manage it
+
 ## Development
 
 ### Setup
@@ -262,17 +333,18 @@ pytest tests/test_validator.py -v
 
 ### Test Coverage
 
-**Current**: 79 tests
+**Current**: 107 tests, **98% coverage**
 
 | Module | Coverage | Tests |
 |--------|----------|-------|
-| validator | 89% | 6 |
-| models/skill | 88% | 7 |
-| core/config | 96% | 9 |
-| cli/main | 86% | 14 |
-| sources/local | 91% | 6 |
-| sources/github | - | 31 |
-| core/installer | 94% | 6 |
+| cli/main | 98% | 22 |
+| core/config | 100% | 10 |
+| core/installer | 100% | 9 |
+| core/validator | 100% | 11 |
+| models/skill | 100% | 8 |
+| models/lock | 94% | 7 |
+| sources/local | 100% | 8 |
+| sources/github | 99% | 32 |
 
 ### TDD Approach
 
@@ -298,8 +370,8 @@ This project follows Kent Beck's Test-Driven Development methodology:
 - [x] CLI commands (init, version, install)
 
 ### 🚧 Next Steps
-- [ ] Lock file management (`skillset.lock`)
-- [ ] `asma list` command
+- [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
+- [x] `asma list` command - **COMPLETED** ✅
 - [ ] `asma update` command
 - [ ] `asma uninstall` command
 - [ ] Git source handler (`git:https://...`)

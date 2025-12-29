@@ -213,6 +213,84 @@ global:
             # (Skill model validates source prefix at load time)
             assert "invalid source format" in result.output.lower()
 
+    def test_install_no_skills_in_skillset(self):
+        """Test that empty skillset is handled gracefully."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global: []
+project: []
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "No skills to install" in result.output
+
+    def test_install_git_source_unsupported(self):
+        """Test that git: source (not yet implemented) shows unsupported message."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: git:https://example.com/repo.git
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "unsupported source" in result.output
+
+    def test_install_creates_lock_file(self):
+        """Test that install command creates skillset.lock."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            # Create a local skill
+            source_dir = fs_path / "source"
+            source_dir.mkdir()
+            (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test skill
+---
+# Test Skill
+""")
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text(f"""
+project:
+  - name: test-skill
+    source: local:{source_dir}
+""")
+
+            result = runner.invoke(cli, ['install', '--force'])
+
+            # Should succeed
+            assert result.exit_code == 0
+            assert "✓ test-skill" in result.output
+
+            # Lock file should be created
+            lock_file = fs_path / "skillset.lock"
+            assert lock_file.exists()
+
+            # Lock file should contain the skill
+            lock_content = lock_file.read_text()
+            assert "test-skill" in lock_content
+            assert "local:" in lock_content
+            assert "checksum:" in lock_content
+            assert "symlink: true" in lock_content
+
 
 class TestInstallCommandGitHub:
     """Test 'asma install' command with GitHub sources."""

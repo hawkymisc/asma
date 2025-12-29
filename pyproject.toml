@@ -66,6 +66,22 @@ addopts = [
     "--cov-report=html",
 ]
 
+[tool.coverage.run]
+omit = [
+    "asma/__main__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py38']
@@ -88,7 +104,7 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

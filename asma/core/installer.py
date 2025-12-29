@@ -3,9 +3,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 import shutil
+import hashlib
 
 from asma.models.skill import Skill
-from asma.core.sources.base import SourceHandler
+from asma.core.sources.base import SourceHandler, ResolvedSource
 from asma.core.validator import SkillValidator
 
 
@@ -17,7 +18,13 @@ class InstallResult:
     skill_name: str
     install_path: Path
     error: Optional[str] = None
+
+    # Lock file fields
     version: Optional[str] = None
+    resolved_commit: Optional[str] = None
+    checksum: Optional[str] = None
+    symlink: bool = False
+    resolved_path: Optional[str] = None
 
 
 class SkillInstaller:
@@ -82,16 +89,28 @@ class SkillInstaller:
             install_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Install (symlink or copy)
-            if source_handler.should_symlink():
+            is_symlink = source_handler.should_symlink()
+            if is_symlink:
                 install_path.symlink_to(source_path, target_is_directory=True)
             else:
                 shutil.copytree(source_path, install_path)
+
+            # Calculate checksum of SKILL.md for lock file
+            skill_md_path = source_path / "SKILL.md"
+            checksum = None
+            if skill_md_path.exists():
+                checksum_hash = hashlib.sha256(skill_md_path.read_bytes()).hexdigest()
+                checksum = f"sha256:{checksum_hash}"
 
             return InstallResult(
                 success=True,
                 skill_name=skill.name,
                 install_path=install_path,
-                version=resolved.version
+                version=resolved.version,
+                resolved_commit=resolved.commit,
+                checksum=checksum,
+                symlink=is_symlink,
+                resolved_path=str(resolved.local_path) if resolved.local_path else None
             )
 
         except Exception as e:

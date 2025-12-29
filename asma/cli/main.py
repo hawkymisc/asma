@@ -70,17 +70,85 @@ def version() -> None:
 
 
 @cli.command()
+@click.option('--scope', type=click.Choice(['global', 'project']), help='Filter by scope')
+def list(scope: str) -> None:
+    """List installed skills."""
+    from asma.models.lock import Lockfile
+    from asma.models.skill import SkillScope
+
+    # Load lock file
+    lock_path = Path("skillset.lock")
+
+    if not lock_path.exists():
+        click.echo("No skills installed (skillset.lock not found)")
+        return
+
+    try:
+        lockfile = Lockfile.load(lock_path)
+    except Exception as e:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Failed to load skillset.lock: {e}"
+        )
+        raise click.Abort()
+
+    # Filter skills by scope if specified
+    skills = lockfile.skills
+    if scope:
+        target_scope = SkillScope.GLOBAL if scope == 'global' else SkillScope.PROJECT
+        skills = {
+            key: entry for key, entry in skills.items()
+            if entry.scope == target_scope
+        }
+
+    if not skills:
+        click.echo("No skills installed")
+        return
+
+    # Group skills by scope
+    global_skills = []
+    project_skills = []
+
+    for key, entry in skills.items():
+        if entry.scope == SkillScope.GLOBAL:
+            global_skills.append(entry)
+        else:
+            project_skills.append(entry)
+
+    # Display global skills
+    if global_skills:
+        click.echo(click.style("Global Skills:", fg="cyan", bold=True))
+        for entry in sorted(global_skills, key=lambda e: e.name):
+            click.echo(f"  • {entry.name}")
+            click.echo(f"    Source: {entry.source}")
+            click.echo(f"    Version: {entry.resolved_version}")
+        click.echo()
+
+    # Display project skills
+    if project_skills:
+        click.echo(click.style("Project Skills:", fg="cyan", bold=True))
+        for entry in sorted(project_skills, key=lambda e: e.name):
+            click.echo(f"  • {entry.name}")
+            click.echo(f"    Source: {entry.source}")
+            click.echo(f"    Version: {entry.resolved_version}")
+        click.echo()
+
+
+@cli.command()
 @click.option('--file', 'skillset_file', default='skillset.yaml', help='Path to skillset file')
 @click.option('--scope', type=click.Choice(['global', 'project']), help='Install only specified scope')
 @click.option('--force', is_flag=True, help='Reinstall even if already installed')
 def install(skillset_file: str, scope: str, force: bool) -> None:
     """Install skills from skillset.yaml."""
     import os
+    from datetime import datetime
     from asma.core.config import load_skillset
     from asma.core.installer import SkillInstaller
+    from asma.core.sources.base import SourceHandler
     from asma.core.sources.local import LocalSourceHandler
     from asma.core.sources.github import GitHubSourceHandler
     from asma.models.skill import SkillScope
+    from asma.models.lock import Lockfile, LockEntry
 
     skillset_path = Path(skillset_file)
 
@@ -114,6 +182,10 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
         click.echo("No skills to install.")
         return
 
+    # Load existing lock file
+    lock_path = skillset_path.parent / "skillset.lock"
+    lockfile = Lockfile.load(lock_path)
+
     # Install skills
     installer = SkillInstaller()
     success_count = 0
@@ -129,6 +201,7 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
             install_base = Path.cwd() / ".claude/skills"
 
         # Get source handler
+        source_handler: SourceHandler
         if skill.source.startswith("local:"):
             source_handler = LocalSourceHandler()
         elif skill.source.startswith("github:"):
@@ -156,12 +229,31 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
                 f" ({skill.scope.value})"
             )
             success_count += 1
+
+            # Add to lock file
+            if result.checksum:  # Only add if we have valid install info
+                lock_entry = LockEntry(
+                    name=skill.name,
+                    scope=skill.scope,
+                    source=skill.source,
+                    resolved_version=result.version or "unknown",
+                    resolved_commit=result.resolved_commit or "unknown",
+                    installed_at=datetime.now(),
+                    checksum=result.checksum,
+                    symlink=result.symlink,
+                    resolved_path=result.resolved_path
+                )
+                lockfile.add_entry(lock_entry)
         else:
             click.echo(
                 click.style(f"✗ {skill.name}", fg="red") +
                 f" - {result.error}"
             )
             fail_count += 1
+
+    # Save lock file
+    if success_count > 0:
+        lockfile.save(lock_path)
 
     # Summary
     click.echo()

@@ -547,3 +547,22 @@ class TestGitHubSourceHandlerEdgeCases:
         handler.download(resolved)
 
         assert cache_dir.exists()
+
+    def test_api_returns_non_dict_json(self, requests_mock):
+        """Test handling when GitHub API returns a JSON array instead of object."""
+        skill = Skill(
+            name="test",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL
+        )
+
+        # Mock API to return an array instead of object
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo",
+            json=["unexpected", "array", "response"]
+        )
+
+        handler = GitHubSourceHandler()
+        with pytest.raises(ValueError, match="Expected JSON object"):
+            handler.resolve(skill)
+

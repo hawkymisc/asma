@@ -140,3 +140,41 @@ class TestSkill:
 
         # When/Then: install_name should be alias
         assert skill2.install_name == "my-custom-name"
+
+    def test_skill_install_path(self):
+        """Test that install_path property returns correct path."""
+        from pathlib import Path
+
+        # Given: global skill
+        skill1 = Skill(
+            name="test-skill",
+            source="github:test/repo",
+            scope=SkillScope.GLOBAL
+        )
+
+        # When/Then: should return global path
+        expected_path = Path.home() / ".claude/skills" / "test-skill"
+        assert skill1.install_path == expected_path
+
+        # Given: project skill
+        skill2 = Skill(
+            name="test-skill",
+            source="github:test/repo",
+            scope=SkillScope.PROJECT
+        )
+
+        # When/Then: should return project path
+        expected_path = Path.cwd() / ".claude/skills" / "test-skill"
+        assert skill2.install_path == expected_path
+
+        # Given: skill with alias
+        skill3 = Skill(
+            name="test-skill",
+            source="github:test/repo",
+            scope=SkillScope.GLOBAL,
+            alias="custom"
+        )
+
+        # When/Then: should use alias in path
+        expected_path = Path.home() / ".claude/skills" / "custom"
+        assert skill3.install_path == expected_path

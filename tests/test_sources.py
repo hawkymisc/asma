@@ -119,3 +119,34 @@ description: Test
 
         # Then: should return same path (no actual download)
         assert result_path == skill_dir
+
+    def test_resolve_path_not_directory(self, tmp_path):
+        """Test that path must be a directory, not a file."""
+        # Given: a file instead of directory
+        skill_file = tmp_path / "skill.md"
+        skill_file.write_text("content")
+
+        skill = Skill(
+            name="test-skill",
+            source=f"local:{skill_file}",
+            scope=SkillScope.GLOBAL
+        )
+
+        # When/Then: should raise ValueError
+        handler = LocalSourceHandler()
+        with pytest.raises(ValueError, match="must be directory"):
+            handler.resolve(skill)
+
+    def test_download_without_local_path(self):
+        """Test that download fails if ResolvedSource has no local_path."""
+        # Given: ResolvedSource without local_path
+        resolved = ResolvedSource(
+            version="1.0.0",
+            commit="abc123",
+            local_path=None
+        )
+
+        # When/Then: should raise ValueError
+        handler = LocalSourceHandler()
+        with pytest.raises(ValueError, match="must have local_path"):
+            handler.download(resolved)
