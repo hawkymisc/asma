@@ -7,6 +7,7 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 **MVP Core Features Complete** ✅
 - ✅ `asma init` - Initialize skillset.yaml
 - ✅ `asma install` - Install skills from skillset
+- ✅ `asma list` - List installed skills
 - ✅ `asma version` - Show version
 - ✅ Local filesystem sources (`local:`)
 - ✅ GitHub sources (`github:`)
@@ -202,6 +203,37 @@ asma install --file custom-skills.yaml
 asma install --force
 ```
 
+### `asma list`
+List installed skills from skillset.lock.
+
+**Options**:
+- `--scope <global|project>` - Filter by scope
+
+**Examples**:
+```bash
+# List all installed skills
+asma list
+
+# List only global skills
+asma list --scope global
+
+# List only project skills
+asma list --scope project
+```
+
+**Output Example**:
+```
+Global Skills:
+  • document-analyzer
+    Source: github:anthropics/skills/document-analyzer
+    Version: v1.0.0
+
+Project Skills:
+  • test-runner
+    Source: local:/path/to/skills/test-runner
+    Version: local@abc123
+```
+
 ### `asma version`
 Show asma version.
 
@@ -301,17 +333,18 @@ pytest tests/test_validator.py -v
 
 ### Test Coverage
 
-**Current**: 79 tests
+**Current**: 107 tests, **98% coverage**
 
 | Module | Coverage | Tests |
 |--------|----------|-------|
-| validator | 89% | 6 |
-| models/skill | 88% | 7 |
-| core/config | 96% | 9 |
-| cli/main | 86% | 14 |
-| sources/local | 91% | 6 |
-| sources/github | - | 31 |
-| core/installer | 94% | 6 |
+| cli/main | 98% | 22 |
+| core/config | 100% | 10 |
+| core/installer | 100% | 9 |
+| core/validator | 100% | 11 |
+| models/skill | 100% | 8 |
+| models/lock | 94% | 7 |
+| sources/local | 100% | 8 |
+| sources/github | 99% | 32 |
 
 ### TDD Approach
 
@@ -338,7 +371,7 @@ This project follows Kent Beck's Test-Driven Development methodology:
 
 ### 🚧 Next Steps
 - [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
-- [ ] `asma list` command
+- [x] `asma list` command - **COMPLETED** ✅
 - [ ] `asma update` command
 - [ ] `asma uninstall` command
 - [ ] Git source handler (`git:https://...`)
