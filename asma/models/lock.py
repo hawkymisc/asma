@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Any
 import yaml
 
 from asma.models.skill import SkillScope
@@ -25,9 +25,9 @@ class LockEntry:
     symlink: bool = False
     resolved_path: Optional[str] = None  # For local sources
 
-    def to_dict(self) -> Dict[str, any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert lock entry to dictionary for serialization."""
-        data = {
+        data: Dict[str, Any] = {
             "source": self.source,
             "resolved_version": self.resolved_version,
             "resolved_commit": self.resolved_commit,
@@ -43,7 +43,7 @@ class LockEntry:
         return data
 
     @classmethod
-    def from_dict(cls, name: str, scope: SkillScope, data: Dict[str, any]) -> "LockEntry":
+    def from_dict(cls, name: str, scope: SkillScope, data: Dict[str, Any]) -> "LockEntry":
         """Create lock entry from dictionary."""
         return cls(
             name=name,
@@ -86,19 +86,21 @@ class Lockfile:
     def save(self, path: Path) -> None:
         """Save lockfile to disk."""
         # Build lockfile structure
-        lock_data = {
+        skills_dict: Dict[str, Dict[str, Any]] = {
+            "global": {},
+            "project": {}
+        }
+
+        lock_data: Dict[str, Any] = {
             "version": self.version,
             "generated_at": self.generated_at.isoformat(),
-            "skills": {
-                "global": {},
-                "project": {}
-            }
+            "skills": skills_dict
         }
 
         # Add entries grouped by scope
         for (name, scope), entry in self.skills.items():
             scope_key = scope.value  # "global" or "project"
-            lock_data["skills"][scope_key][name] = entry.to_dict()
+            skills_dict[scope_key][name] = entry.to_dict()
 
         # Write to file
         with open(path, 'w') as f:
