@@ -78,6 +78,7 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
     import os
     from asma.core.config import load_skillset
     from asma.core.installer import SkillInstaller
+    from asma.core.sources.base import SourceHandler
     from asma.core.sources.local import LocalSourceHandler
     from asma.core.sources.github import GitHubSourceHandler
     from asma.models.skill import SkillScope
@@ -129,6 +130,7 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
             install_base = Path.cwd() / ".claude/skills"
 
         # Get source handler
+        source_handler: SourceHandler
         if skill.source.startswith("local:"):
             source_handler = LocalSourceHandler()
         elif skill.source.startswith("github:"):

@@ -216,3 +216,125 @@ description: Test
         # Then: should fail
         assert result.success is False
         assert "already exists" in result.error.lower()
+
+    def test_install_overwrites_existing_symlink_with_force(self, tmp_path):
+        """Test that force=True can overwrite existing symlink."""
+        # Given: source skill
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test
+---
+# Test
+""")
+
+        # And: existing symlink
+        install_base = tmp_path / "install"
+        install_base.mkdir()
+        old_source = tmp_path / "old_source"
+        old_source.mkdir()
+        existing_link = install_base / "test-skill"
+        existing_link.symlink_to(old_source, target_is_directory=True)
+
+        skill = Skill(
+            name="test-skill",
+            source=f"local:{source_dir}",
+            scope=SkillScope.GLOBAL
+        )
+
+        # When: we install with force
+        installer = SkillInstaller()
+        result = installer.install_skill(
+            skill=skill,
+            source_handler=LocalSourceHandler(),
+            install_base=install_base,
+            force=True
+        )
+
+        # Then: should replace symlink
+        assert result.success is True
+        assert existing_link.is_symlink()
+        assert existing_link.resolve() == source_dir.resolve()
+
+    def test_install_with_copy_instead_of_symlink(self, tmp_path):
+        """Test installing with a handler that copies instead of symlinks."""
+        from asma.core.sources.base import SourceHandler, ResolvedSource
+        from unittest.mock import Mock
+
+        # Given: source skill
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test
+---
+# Test
+""")
+        (source_dir / "extra.txt").write_text("extra content")
+
+        skill = Skill(
+            name="test-skill",
+            source="git:https://example.com/repo.git",
+            scope=SkillScope.GLOBAL
+        )
+
+        install_base = tmp_path / "install"
+        install_base.mkdir()
+
+        # Create a mock handler that copies instead of symlinks
+        mock_handler = Mock(spec=SourceHandler)
+        mock_handler.resolve.return_value = ResolvedSource(
+            version="1.0.0",
+            commit="abc123",
+            local_path=source_dir
+        )
+        mock_handler.download.return_value = source_dir
+        mock_handler.should_symlink.return_value = False  # Copy instead
+
+        # When: we install
+        installer = SkillInstaller()
+        result = installer.install_skill(
+            skill=skill,
+            source_handler=mock_handler,
+            install_base=install_base
+        )
+
+        # Then: should copy files
+        assert result.success is True
+        install_path = install_base / "test-skill"
+        assert install_path.exists()
+        assert not install_path.is_symlink()  # Not a symlink
+        assert (install_path / "SKILL.md").exists()
+        assert (install_path / "extra.txt").exists()
+
+    def test_install_handles_unexpected_exception(self, tmp_path):
+        """Test that installer handles unexpected exceptions gracefully."""
+        from asma.core.sources.base import SourceHandler
+        from unittest.mock import Mock
+
+        # Given: a handler that raises an unexpected exception
+        skill = Skill(
+            name="test-skill",
+            source="git:https://example.com/repo.git",
+            scope=SkillScope.GLOBAL
+        )
+
+        install_base = tmp_path / "install"
+        install_base.mkdir()
+
+        mock_handler = Mock(spec=SourceHandler)
+        mock_handler.resolve.side_effect = RuntimeError("Unexpected network error")
+
+        # When: we try to install
+        installer = SkillInstaller()
+        result = installer.install_skill(
+            skill=skill,
+            source_handler=mock_handler,
+            install_base=install_base
+        )
+
+        # Then: should return failure with error message
+        assert result.success is False
+        assert result.skill_name == "test-skill"
+        assert "Unexpected network error" in result.error

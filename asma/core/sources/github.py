@@ -107,7 +107,10 @@ class GitHubSourceHandler(SourceHandler):
         elif response.status_code != 200:
             raise ConnectionError(f"GitHub API error: {response.status_code}")
 
-        return response.json()
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("Expected JSON object from GitHub API")
+        return result
 
     def resolve(self, skill: Skill) -> ResolvedSource:
         """

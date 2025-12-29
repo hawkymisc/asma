@@ -213,6 +213,43 @@ global:
             # (Skill model validates source prefix at load time)
             assert "invalid source format" in result.output.lower()
 
+    def test_install_no_skills_in_skillset(self):
+        """Test that empty skillset is handled gracefully."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global: []
+project: []
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "No skills to install" in result.output
+
+    def test_install_git_source_unsupported(self):
+        """Test that git: source (not yet implemented) shows unsupported message."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            skillset = fs_path / "skillset.yaml"
+            skillset.write_text("""
+global:
+  - name: test-skill
+    source: git:https://example.com/repo.git
+""")
+
+            result = runner.invoke(cli, ['install'])
+
+            assert result.exit_code == 0
+            assert "unsupported source" in result.output
+
 
 class TestInstallCommandGitHub:
     """Test 'asma install' command with GitHub sources."""

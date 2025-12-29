@@ -36,6 +36,15 @@ class TestSkillsetConfig:
         config = SkillsetConfig(parallel_downloads=10)
         assert config.parallel_downloads == 10
 
+    def test_config_cache_dir_string_conversion(self):
+        """Test that cache_dir string is converted to Path."""
+        # Given: config with cache_dir as string
+        config = SkillsetConfig(cache_dir="~/.custom/cache")
+
+        # Then: should be converted to Path
+        assert isinstance(config.cache_dir, Path)
+        assert str(config.cache_dir) == "~/.custom/cache"
+
 
 class TestSkillset:
     """Test Skillset model."""

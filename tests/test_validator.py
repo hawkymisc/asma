@@ -128,3 +128,104 @@ Follow these instructions.
         assert len(result.errors) == 0
         assert result.metadata["name"] == "test-skill"
         assert result.metadata["description"] == "A properly formatted test skill for validation"
+
+    def test_validate_name_not_string(self, tmp_path):
+        """Test that name field must be a string."""
+        # Given: SKILL.md with non-string name
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("""---
+name: 123
+description: Test skill
+---
+# Test
+""")
+
+        # When: we validate
+        result = SkillValidator.validate(skill_dir)
+
+        # Then: should fail
+        assert result.valid is False
+        assert any("name" in error.lower() and "string" in error.lower() for error in result.errors)
+
+    def test_validate_description_not_string(self, tmp_path):
+        """Test that description field must be a string."""
+        # Given: SKILL.md with non-string description
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("""---
+name: test-skill
+description: 123
+---
+# Test
+""")
+
+        # When: we validate
+        result = SkillValidator.validate(skill_dir)
+
+        # Then: should fail
+        assert result.valid is False
+        assert any("description" in error.lower() and "string" in error.lower() for error in result.errors)
+
+    def test_validate_description_empty(self, tmp_path):
+        """Test that description cannot be empty."""
+        # Given: SKILL.md with empty description
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("""---
+name: test-skill
+description: "   "
+---
+# Test
+""")
+
+        # When: we validate
+        result = SkillValidator.validate(skill_dir)
+
+        # Then: should fail
+        assert result.valid is False
+        assert any("description" in error.lower() and "empty" in error.lower() for error in result.errors)
+
+    def test_validate_frontmatter_not_dict(self, tmp_path):
+        """Test that frontmatter must be a YAML object (dict)."""
+        # Given: SKILL.md with frontmatter that's not a dict
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("""---
+- just
+- a
+- list
+---
+# Test
+""")
+
+        # When: we validate
+        result = SkillValidator.validate(skill_dir)
+
+        # Then: should fail
+        assert result.valid is False
+        assert any("frontmatter" in error.lower() for error in result.errors)
+
+    def test_validate_invalid_yaml_syntax(self, tmp_path):
+        """Test that invalid YAML syntax is handled gracefully."""
+        # Given: SKILL.md with invalid YAML in frontmatter
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("""---
+name: test-skill
+description: "unterminated string
+---
+# Test
+""")
+
+        # When: we validate
+        result = SkillValidator.validate(skill_dir)
+
+        # Then: should fail
+        assert result.valid is False
+        assert any("frontmatter" in error.lower() for error in result.errors)

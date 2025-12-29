@@ -82,6 +82,7 @@ class SkillValidator:
             return None
 
         try:
-            return yaml.safe_load(match.group(1))
+            result = yaml.safe_load(match.group(1))
+            return result if isinstance(result, dict) else None
         except yaml.YAMLError:
             return None
