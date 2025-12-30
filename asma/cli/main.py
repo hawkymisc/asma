@@ -305,7 +305,8 @@ def context(skill_name: str, scope: str, output_format: str) -> None:
 @click.option('--file', 'skillset_file', default='skillset.yaml', help='Path to skillset file')
 @click.option('--scope', type=click.Choice(['global', 'project']), help='Install only specified scope')
 @click.option('--force', is_flag=True, help='Reinstall even if already installed')
-def install(skillset_file: str, scope: str, force: bool) -> None:
+@click.option('--strict', is_flag=True, help='Fail if version/ref not specified for any skill')
+def install(skillset_file: str, scope: str, force: bool, strict: bool) -> None:
     """Install skills from skillset.yaml."""
     import os
     from datetime import datetime
@@ -368,12 +369,15 @@ def install(skillset_file: str, scope: str, force: bool) -> None:
             install_base = Path.cwd() / ".claude/skills"
 
         # Get source handler
+        # strict mode: CLI --strict flag OR skillset.yaml config.strict
+        strict_mode = strict or skillset.config.strict
+
         source_handler: SourceHandler
         if skill.source.startswith("local:"):
             source_handler = LocalSourceHandler()
         elif skill.source.startswith("github:"):
             token = os.environ.get("GITHUB_TOKEN")
-            source_handler = GitHubSourceHandler(token=token)
+            source_handler = GitHubSourceHandler(token=token, strict=strict_mode)
         else:
             click.echo(
                 click.style(f"✗ {skill.name}", fg="yellow") +

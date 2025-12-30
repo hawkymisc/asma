@@ -4,6 +4,7 @@ import re
 import shutil
 import tarfile
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -51,7 +52,8 @@ class GitHubSourceHandler(SourceHandler):
     def __init__(
         self,
         token: Optional[str] = None,
-        cache_dir: Optional[Path] = None
+        cache_dir: Optional[Path] = None,
+        strict: bool = False
     ):
         """
         Initialize GitHub source handler.
@@ -59,9 +61,12 @@ class GitHubSourceHandler(SourceHandler):
         Args:
             token: GitHub API token for authentication
             cache_dir: Directory for caching downloaded tarballs
+            strict: If True, raise error when version/ref not specified.
+                    If False (default), emit warning and use default branch.
         """
         self.token = token
         self.cache_dir = cache_dir or Path.home() / ".cache" / "asma" / "github"
+        self.strict = strict
         self._pending_subpath: Optional[str] = None
 
     def _get_headers(self) -> dict:
@@ -143,6 +148,21 @@ class GitHubSourceHandler(SourceHandler):
                 # Use version as tag
                 ref = skill.version
         else:
+            # No version or ref specified
+            if self.strict:
+                raise ValueError(
+                    f"Version not specified for skill '{skill.name}'. "
+                    f"In strict mode, you must specify 'version' or 'ref' in skillset.yaml."
+                )
+
+            # Emit warning and use default branch
+            warnings.warn(
+                f"No version specified for skill '{skill.name}'. "
+                f"Using default branch. Consider pinning a version for reproducibility.",
+                UserWarning,
+                stacklevel=2
+            )
+
             # Get default branch
             data = self._api_request(f"/repos/{owner}/{repo}")
             ref = data["default_branch"]
