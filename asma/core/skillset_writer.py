@@ -98,8 +98,17 @@ class SkillsetWriter:
         data = self.load_raw()
         section_key = scope.value
 
-        # Check if skill exists
-        if self.skill_exists(entry.name, scope) and not force:
+        # Check if skill exists (inline to avoid re-reading file)
+        section = data.get(section_key)
+        exists = False
+        if isinstance(section, list):
+            exists = any(
+                s.get("name") == entry.name for s in section if isinstance(s, dict)
+            )
+        elif isinstance(section, dict):
+            exists = entry.name in section
+
+        if exists and not force:
             raise ValueError(
                 f"Skill '{entry.name}' already exists in {scope.value} scope. "
                 f"Use --force to overwrite."

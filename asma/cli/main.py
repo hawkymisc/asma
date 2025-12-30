@@ -577,7 +577,7 @@ def add(
             click.style("Error: ", fg="red", bold=True) +
             f"Failed to update skillset.yaml: {e}"
         )
-        raise click.Abort()
+        raise click.Abort() from None
 
     # Success message
     scope_display = "global" if target_scope == SkillScope.GLOBAL else "project"
