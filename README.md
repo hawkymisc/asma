@@ -1,90 +1,57 @@
-# asma - Agent Skills Manager
+# asma - Claude Code Skills Manager
 
-A declarative package manager for Claude Agent Skills, inspired by vim-plug and Vundle.
+A declarative package manager for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills, inspired by vim-plug and Vundle.
 
-## ⚠️ Disclaimer
+> **Note**: This tool is specifically designed for Claude Code's skill system. It manages skills installed to `~/.claude/skills/` (global) and `.claude/skills/` (project).
 
-> **This is an alpha version (α版) of a personal project.**
+## Disclaimer
+
+> **This is an alpha version of a personal project.**
 >
-> - 🧪 Built with **Vibe Coding** - developed through AI-assisted pair programming
-> - 🔬 Experimental software - expect bugs and breaking changes
-> - ⚡ While this tool is designed to be non-destructive (it only creates symlinks and copies files to `.claude/skills/`), **use at your own risk**
-> - 💡 No warranty is provided - always review changes before committing to version control
-
-## Status
-
-**MVP Core Features Complete** ✅
-- ✅ `asma init` - Initialize skillset.yaml
-- ✅ `asma install` - Install skills from skillset
-- ✅ `asma list` - List installed skills
-- ✅ `asma version` - Show version
-- ✅ Local filesystem sources (`local:`)
-- ✅ GitHub sources (`github:`)
-- ✅ SKILL.md validation
-- ✅ Global and project scopes
-- ✅ Lock file management (`skillset.lock`)
+> - Experimental software - expect bugs and breaking changes
+> - While this tool is designed to be non-destructive (it only creates symlinks and copies files), **use at your own risk**
+> - No warranty is provided - always review changes before committing
 
 ## Features
 
-- 📦 **Declarative Configuration**: Define skills in `skillset.yaml`
-- 🔒 **Lock File Management**: Auto-generated `skillset.lock` ensures reproducible installs
-- 🌍 **Multi-Scope Support**: Global (`~/.claude/skills/`) and project (`.claude/skills/`) scopes
-- ⚡ **Simple CLI**: Intuitive commands for skill management
-- ✅ **Validation**: Verify SKILL.md structure and metadata
-- 🔗 **Symlink Support**: Local skills are symlinked for easy development
-- 🎨 **Colored Output**: Clear progress indicators and error messages
+- **Declarative Configuration** - Define skills in `skillset.yaml`
+- **Lock File Management** - Reproducible installs with `skillset.lock`
+- **Multi-Scope Support** - Global (`~/.claude/skills/`) and project (`.claude/skills/`) scopes
+- **Multiple Sources** - Install from local filesystem or GitHub
+- **Validation** - Verify SKILL.md structure and metadata
+- **Symlink Support** - Local skills are symlinked for easy development
 
 ## Quick Start
 
-### 1. Installation
-
-#### Option A: pipx (Recommended)
+### Installation
 
 ```bash
-# Install pipx if not already installed
-pip install pipx
-pipx ensurepath
-
-# Install asma globally
+# Using pipx (recommended)
 pipx install git+https://github.com/hawkymisc/asma.git
 
-# Or from local clone
-git clone https://github.com/hawkymisc/asma.git
-cd asma
-pipx install .
+# Or using pip
+pip install git+https://github.com/hawkymisc/asma.git
 ```
 
-#### Option B: pip (Development)
+### Basic Usage
 
 ```bash
-# Clone the repository
-git clone https://github.com/hawkymisc/asma.git
-cd asma
-
-# Install with pip (editable mode for development)
-pip install -e .
-```
-
-#### Uninstall
-
-```bash
-# If installed with pipx
-pipx uninstall asma
-
-# If installed with pip
-pip uninstall asma
-```
-
-### 2. Initialize Project
-
-```bash
-# Create skillset.yaml template
+# 1. Initialize skillset.yaml
 asma init
+
+# 2. Edit skillset.yaml to add your skills
+
+# 3. Install skills
+asma install
+
+# 4. Verify installation
+asma list
+asma check
 ```
 
-### 3. Define Your Skills
+## Configuration
 
-Edit `skillset.yaml`:
+Create a `skillset.yaml` in your project root:
 
 ```yaml
 # Global skills (installed to ~/.claude/skills/)
@@ -102,154 +69,66 @@ project:
     source: local:./skills/team-skill
 ```
 
-### 4. Install Skills
+### Source Types
 
-```bash
-# Install all skills
-asma install
-
-# Install only global skills
-asma install --scope global
-
-# Force reinstall
-asma install --force
-```
-
-## skillset.yaml Format
-
-```yaml
-# Optional global configuration
-config:
-  auto_update: false
-  parallel_downloads: 4
-  github_token_env: GITHUB_TOKEN
-
-# Global skills (personal, across all projects)
-global:
-  - name: document-analyzer
-    source: local:~/skills/document-analyzer
-    # Optional fields:
-    # version: v1.0.0         # For git sources
-    # ref: main               # For git sources
-    # enabled: true           # Skip if false
-    # alias: custom-name      # Install under different name
-
-# Project skills (team-shared, version-controlled)
-project:
-  - name: test-runner
-    source: local:./local-skills/test-runner
-```
-
-## Source Types
-
-### Local Source (`local:`)
-
-Install skills from local filesystem:
-
+**Local filesystem:**
 ```yaml
 - name: my-skill
   source: local:~/skills/my-skill      # Absolute path
   source: local:./skills/my-skill      # Relative path
 ```
 
-### GitHub Source (`github:`)
-
-Install skills from GitHub repositories:
-
+**GitHub:**
 ```yaml
 - name: skill-name
   source: github:owner/repo            # Repository root
   source: github:owner/repo/subdir     # Subdirectory
-
-# Version/ref specification
-- name: skill-with-version
-  source: github:owner/repo
-  version: v1.0.0                      # Specific tag
-  version: latest                      # Latest release
-
-- name: skill-with-ref
-  source: github:owner/repo
-  ref: main                            # Branch
-  ref: abc1234                         # Commit SHA
+  version: v1.0.0                      # Tag or "latest"
+  ref: main                            # Branch or commit SHA
 ```
 
-**Authentication**: Set `GITHUB_TOKEN` environment variable for private repositories.
+Set `GITHUB_TOKEN` environment variable for private repositories.
 
 ## Commands
 
-### `asma init`
-Initialize a new skillset.yaml file with template.
+| Command | Description |
+|---------|-------------|
+| `asma init` | Create skillset.yaml template |
+| `asma install` | Install skills from skillset.yaml |
+| `asma list` | List installed skills |
+| `asma check` | Verify installed skills exist |
+| `asma context` | Show skill metadata (SKILL.md frontmatter) |
+| `asma version` | Show asma version |
 
-**Options**:
-- `--force` - Overwrite existing file
+### Command Options
 
-**Example**:
+**asma install**
 ```bash
-asma init
-asma init --force
+asma install                      # Install all skills
+asma install --scope global       # Install only global skills
+asma install --force              # Force reinstall
+asma install --file custom.yaml   # Use alternative config file
 ```
 
-### `asma install`
-Install skills from skillset.yaml.
-
-**Options**:
-- `--file <path>` - Use alternative skillset file (default: `./skillset.yaml`)
-- `--scope <global|project>` - Install only specified scope
-- `--force` - Reinstall even if already installed
-
-**Examples**:
+**asma list**
 ```bash
-# Install all skills
-asma install
-
-# Install only global skills
-asma install --scope global
-
-# Use custom file
-asma install --file custom-skills.yaml
-
-# Force reinstall
-asma install --force
+asma list                    # List all installed skills
+asma list --scope project    # Filter by scope
 ```
 
-### `asma list`
-List installed skills from skillset.lock.
-
-**Options**:
-- `--scope <global|project>` - Filter by scope
-
-**Examples**:
+**asma check**
 ```bash
-# List all installed skills
-asma list
-
-# List only global skills
-asma list --scope global
-
-# List only project skills
-asma list --scope project
+asma check                   # Check all skills
+asma check --checksum        # Also verify checksums
+asma check --quiet           # Only show errors
 ```
 
-**Output Example**:
-```
-Global Skills:
-  • document-analyzer
-    Source: github:anthropics/skills/document-analyzer
-    Version: v1.0.0
-
-Project Skills:
-  • test-runner
-    Source: local:/path/to/skills/test-runner
-    Version: local@abc123
-```
-
-### `asma version`
-Show asma version.
-
-**Example**:
+**asma context**
 ```bash
-asma version
-# Output: asma version 0.1.0
+asma context                       # Show all skill metadata
+asma context my-skill              # Show specific skill
+asma context --format yaml         # Output as YAML
+asma context --format json         # Output as JSON
 ```
 
 ## Skill Structure
@@ -264,144 +143,35 @@ description: A helpful skill for doing X
 
 # My Skill
 
-## Instructions
-Detailed instructions for Claude...
-
-## Examples
-- Example 1
-- Example 2
-
-## Guidelines
-- Guideline 1
-- Guideline 2
+Instructions for Claude Code...
 ```
 
-**Requirements**:
-- `name`: lowercase letters, numbers, and hyphens only (e.g., `my-skill-123`)
-- `description`: non-empty string describing the skill's purpose
+Requirements:
+- `name`: lowercase letters, numbers, and hyphens only
+- `description`: non-empty string
 
-## Lock File (`skillset.lock`)
+## Lock File
 
-The `skillset.lock` file is **auto-generated** when you run `asma install` and ensures reproducible skill installations.
+`skillset.lock` is auto-generated when you run `asma install`. It records exact versions and checksums for reproducible installations.
 
-**Purpose**:
-- 🔒 Records exact versions and checksums of installed skills
-- 📌 Guarantees consistent environments across team members
-- ✅ Tracks installation metadata for integrity verification
-
-**Format** (auto-generated - do not edit manually):
-```yaml
-version: 1
-generated_at: "2025-12-29T12:00:00Z"
-skills:
-  global:
-    my-skill:
-      source: github:owner/repo
-      resolved_version: v1.2.3
-      resolved_commit: abc123def456
-      installed_at: "2025-12-29T11:59:30Z"
-      checksum: sha256:9f86d081884c7d659a2feaa0...
-
-  project:
-    team-skill:
-      source: local:/path/to/skill
-      resolved_version: local@def456ab
-      resolved_commit: def456ab
-      installed_at: "2025-12-29T12:00:15Z"
-      checksum: sha256:5e884898da28047...
-      symlink: true
-      resolved_path: /path/to/skill
-```
-
-**Best Practices**:
-- ✅ **Commit `skillset.lock`** to version control (like `package-lock.json`)
-- ✅ **Run `asma install`** after pulling changes to sync with locked versions
-- ❌ **Don't edit manually** - let asma manage it
+**Best Practices:**
+- Commit `skillset.lock` to version control
+- Run `asma install` after pulling changes
+- Don't edit manually
 
 ## Development
 
-### Setup
-
 ```bash
-# Install with dev dependencies
+# Clone and install in development mode
+git clone https://github.com/hawkymisc/asma.git
+cd asma
 pip install -e ".[dev]"
-```
 
-### Running Tests
-
-```bash
-# Run all tests
+# Run tests
 pytest
-
-# Run with coverage
-pytest --cov=asma
-
-# Run specific test file
-pytest tests/test_validator.py -v
 ```
 
-### Test Coverage
-
-**Current**: 107 tests, **98% coverage**
-
-| Module | Coverage | Tests |
-|--------|----------|-------|
-| cli/main | 98% | 22 |
-| core/config | 100% | 10 |
-| core/installer | 100% | 9 |
-| core/validator | 100% | 11 |
-| models/skill | 100% | 8 |
-| models/lock | 94% | 7 |
-| sources/local | 100% | 8 |
-| sources/github | 99% | 32 |
-
-### TDD Approach
-
-This project follows Kent Beck's Test-Driven Development methodology:
-1. 🔴 **RED**: Write failing test first
-2. 🟢 **GREEN**: Implement minimum code to pass
-3. 🔵 **REFACTOR**: Clean up implementation
-
-## Documentation
-
-- [SPEC.md](SPEC.md) - Complete technical specification (MVP requirements, commands, formats)
-- [DESIGN.md](DESIGN.md) - Detailed design document (architecture, algorithms, data models)
-
-## Roadmap
-
-### ✅ MVP (Complete)
-- [x] Project structure and build system
-- [x] SKILL.md validator
-- [x] Skill and Skillset models
-- [x] Local source handler
-- [x] GitHub source handler
-- [x] Skill installer
-- [x] CLI commands (init, version, install)
-
-### 🚧 Next Steps
-- [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
-- [x] `asma list` command - **COMPLETED** ✅
-- [ ] `asma check` command - Check installed skills exist on filesystem
-- [ ] `asma context` command - Display SKILL.md frontmatter of installed skills
-- [ ] `asma update` command
-- [ ] `asma uninstall` command
-- [ ] Git source handler (`git:https://...`)
-
-### 🔮 Future
-- [ ] Dependency resolution
-- [ ] Central skill registry
-- [ ] Skill search and discovery
-- [ ] Parallel installation
-- [ ] Installation hooks
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Write tests (TDD approach)
-4. Ensure all tests pass (`pytest`)
-5. Submit a pull request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
