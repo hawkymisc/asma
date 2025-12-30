@@ -94,6 +94,7 @@ project:
 | コマンド | 説明 |
 |---------|------|
 | `asma init` | skillset.yaml テンプレートを作成 |
+| `asma add` | ソースからスキルを skillset.yaml に追加 |
 | `asma install` | skillset.yaml からスキルをインストール |
 | `asma list` | インストール済みスキルを一覧表示 |
 | `asma check` | インストール済みスキルの存在を確認 |
@@ -102,7 +103,18 @@ project:
 
 ### コマンドオプション
 
-**asma install**
+#### asma add
+
+```bash
+asma add github:owner/repo/path   # GitHub からスキルを追加
+asma add local:~/my-skills/skill  # ローカルパスからスキルを追加
+asma add github:owner/repo --global       # グローバルスコープに追加
+asma add github:owner/repo --name custom  # カスタム名を使用
+asma add github:owner/repo --force        # 既存を上書き
+```
+
+#### asma install
+
 ```bash
 asma install                      # すべてのスキルをインストール
 asma install --scope global       # グローバルスキルのみ
@@ -110,20 +122,23 @@ asma install --force              # 強制再インストール
 asma install --file custom.yaml   # 代替設定ファイルを使用
 ```
 
-**asma list**
+#### asma list
+
 ```bash
 asma list                    # すべてのインストール済みスキルを表示
 asma list --scope project    # スコープでフィルタリング
 ```
 
-**asma check**
+#### asma check
+
 ```bash
 asma check                   # すべてのスキルをチェック
 asma check --checksum        # チェックサムも検証
 asma check --quiet           # エラーのみ表示
 ```
 
-**asma context**
+#### asma context
+
 ```bash
 asma context                       # すべてのスキルのメタデータを表示
 asma context my-skill              # 特定のスキルを表示
