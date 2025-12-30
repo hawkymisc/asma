@@ -611,7 +611,7 @@ class TestVersionNotSpecified:
 
         handler = GitHubSourceHandler(strict=True)
 
-        with pytest.raises(ValueError, match="[Vv]ersion.*not specified|[Ss]trict"):
+        with pytest.raises(ValueError, match=r"[Vv]ersion.*not specified|[Ss]trict"):
             handler.resolve(skill)
 
     def test_with_version_no_warning_strict_false(self, requests_mock):

@@ -1,7 +1,7 @@
 """Configuration parser for skillset.yaml."""
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 import yaml
 
 from asma.models.skill import Skill, SkillScope
@@ -70,7 +70,7 @@ class Skillset:
         return self.global_skills + self.project_skills
 
 
-def _parse_skills_section(data: any, section_name: str, scope: SkillScope) -> List[Skill]:
+def _parse_skills_section(data: Any, section_name: str, scope: SkillScope) -> List[Skill]:
     """
     Parse a skills section (global or project) from skillset.yaml.
 

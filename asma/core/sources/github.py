@@ -159,7 +159,8 @@ class GitHubSourceHandler(SourceHandler):
             warnings.warn(
                 f"No version specified for skill '{skill.name}'. "
                 f"Using default branch. Consider pinning a version for reproducibility.",
-                UserWarning
+                UserWarning,
+                stacklevel=2
             )
 
             # Get default branch
