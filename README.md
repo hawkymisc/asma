@@ -2,6 +2,15 @@
 
 A declarative package manager for Claude Agent Skills, inspired by vim-plug and Vundle.
 
+## ⚠️ Disclaimer
+
+> **This is an alpha version (α版) of a personal project.**
+>
+> - 🧪 Built with **Vibe Coding** - developed through AI-assisted pair programming
+> - 🔬 Experimental software - expect bugs and breaking changes
+> - ⚡ While this tool is designed to be non-destructive (it only creates symlinks and copies files to `.claude/skills/`), **use at your own risk**
+> - 💡 No warranty is provided - always review changes before committing to version control
+
 ## Status
 
 **MVP Core Features Complete** ✅
