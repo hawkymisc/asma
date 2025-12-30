@@ -566,3 +566,126 @@ class TestGitHubSourceHandlerEdgeCases:
         with pytest.raises(ValueError, match="Expected JSON object"):
             handler.resolve(skill)
 
+
+class TestVersionNotSpecified:
+    """Test version/ref not specified behavior."""
+
+    def test_no_version_without_strict_emits_warning(self, requests_mock):
+        """Test that resolving without version/ref emits a warning when strict=False."""
+        import warnings
+
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL
+            # No version or ref specified
+        )
+
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo",
+            json={"default_branch": "main"}
+        )
+
+        handler = GitHubSourceHandler(strict=False)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            resolved = handler.resolve(skill)
+
+            # Should emit a warning
+            assert len(w) == 1
+            assert "version" in str(w[0].message).lower()
+            assert "test-skill" in str(w[0].message)
+
+            # Should still resolve successfully
+            assert resolved.version == "main"
+
+    def test_no_version_with_strict_raises_error(self, requests_mock):
+        """Test that resolving without version/ref raises error when strict=True."""
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL
+            # No version or ref specified
+        )
+
+        handler = GitHubSourceHandler(strict=True)
+
+        with pytest.raises(ValueError, match="[Vv]ersion.*not specified|[Ss]trict"):
+            handler.resolve(skill)
+
+    def test_with_version_no_warning_strict_false(self, requests_mock):
+        """Test that specifying version does not emit warning even in non-strict mode."""
+        import warnings
+
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL,
+            version="v1.0.0"
+        )
+
+        handler = GitHubSourceHandler(strict=False)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            resolved = handler.resolve(skill)
+
+            # No warning should be emitted
+            assert len(w) == 0
+            assert resolved.version == "v1.0.0"
+
+    def test_with_ref_no_warning_strict_false(self, requests_mock):
+        """Test that specifying ref does not emit warning even in non-strict mode."""
+        import warnings
+
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL,
+            ref="develop"
+        )
+
+        handler = GitHubSourceHandler(strict=False)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            resolved = handler.resolve(skill)
+
+            # No warning should be emitted
+            assert len(w) == 0
+            assert resolved.version == "develop"
+
+    def test_with_version_no_error_strict_true(self, requests_mock):
+        """Test that specifying version works fine in strict mode."""
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL,
+            version="v2.0.0"
+        )
+
+        handler = GitHubSourceHandler(strict=True)
+        resolved = handler.resolve(skill)
+
+        assert resolved.version == "v2.0.0"
+
+    def test_with_ref_no_error_strict_true(self, requests_mock):
+        """Test that specifying ref works fine in strict mode."""
+        skill = Skill(
+            name="test-skill",
+            source="github:owner/repo",
+            scope=SkillScope.GLOBAL,
+            ref="feature-branch"
+        )
+
+        handler = GitHubSourceHandler(strict=True)
+        resolved = handler.resolve(skill)
+
+        assert resolved.version == "feature-branch"
+
+    def test_strict_default_is_false(self):
+        """Test that strict mode is disabled by default."""
+        handler = GitHubSourceHandler()
+        assert handler.strict is False
+

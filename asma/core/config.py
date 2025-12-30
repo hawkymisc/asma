@@ -70,6 +70,87 @@ class Skillset:
         return self.global_skills + self.project_skills
 
 
+def _parse_skills_section(data: any, section_name: str, scope: SkillScope) -> List[Skill]:
+    """
+    Parse a skills section (global or project) from skillset.yaml.
+
+    Supports three formats:
+    1. List format (block style):
+       global:
+         - name: skill1
+           source: github:...
+         - name: skill2
+           source: github:...
+
+    2. List format (flow style):
+       global: [{name: skill1, source: "github:..."}, ...]
+
+    3. Dict of dicts format (name as key):
+       global:
+         skill1:
+           source: github:...
+         skill2:
+           source: github:...
+
+    Args:
+        data: The section data from YAML
+        section_name: Name of the section (for error messages)
+        scope: Skill scope (GLOBAL or PROJECT)
+
+    Returns:
+        List of parsed Skill objects
+
+    Raises:
+        ValueError: If using unsupported single-dict format
+    """
+    if data is None:
+        return []
+
+    skills = []
+
+    # Format 1, 2: List of skill dicts
+    if isinstance(data, list):
+        for skill_data in data:
+            skill = Skill(**skill_data, scope=scope)
+            skills.append(skill)
+
+    # Dict format - need to distinguish between dict-of-dicts and single-dict
+    elif isinstance(data, dict):
+        # Single-dict format (has 'name' key) - NOT supported
+        if "name" in data:
+            raise ValueError(
+                f"Invalid format in '{section_name}' section: "
+                f"single skill dict format is not supported. "
+                f"Use list format (with '-') or dict-of-dicts format (skill name as key). "
+                f"Example:\n"
+                f"  {section_name}:\n"
+                f"    - name: {data.get('name', 'my-skill')}\n"
+                f"      source: {data.get('source', 'github:...')}\n"
+                f"Or:\n"
+                f"  {section_name}:\n"
+                f"    {data.get('name', 'my-skill')}:\n"
+                f"      source: {data.get('source', 'github:...')}"
+            )
+
+        # Format 3: Dict of dicts (skill name as key)
+        for skill_name, skill_data in data.items():
+            if not isinstance(skill_data, dict):
+                raise ValueError(
+                    f"Invalid skill definition for '{skill_name}' in '{section_name}': "
+                    f"expected a dict, got {type(skill_data).__name__}"
+                )
+            skill = Skill(name=skill_name, **skill_data, scope=scope)
+            skills.append(skill)
+
+    else:
+        raise ValueError(
+            f"Invalid format in '{section_name}' section: "
+            f"expected list or dict, got {type(data).__name__}"
+        )
+
+    return skills
+
+
 def load_skillset(path: Path) -> Skillset:
     """
     Load and parse skillset.yaml file.
@@ -96,16 +177,14 @@ def load_skillset(path: Path) -> Skillset:
     config = SkillsetConfig(**config_data)
 
     # Parse global skills
-    global_skills = []
-    for skill_data in data.get("global", []):
-        skill = Skill(**skill_data, scope=SkillScope.GLOBAL)
-        global_skills.append(skill)
+    global_skills = _parse_skills_section(
+        data.get("global"), "global", SkillScope.GLOBAL
+    )
 
     # Parse project skills
-    project_skills = []
-    for skill_data in data.get("project", []):
-        skill = Skill(**skill_data, scope=SkillScope.PROJECT)
-        project_skills.append(skill)
+    project_skills = _parse_skills_section(
+        data.get("project"), "project", SkillScope.PROJECT
+    )
 
     return Skillset(
         global_skills=global_skills,
