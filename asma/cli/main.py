@@ -473,5 +473,120 @@ def install(skillset_file: str, scope: str, force: bool, strict: bool) -> None:
         )
 
 
+@cli.command()
+@click.argument('source')
+@click.option('--global', 'is_global', is_flag=True, help='Install to global scope (~/.claude/skills/)')
+@click.option('--scope', type=click.Choice(['global', 'project']), help='Installation scope')
+@click.option('--force', is_flag=True, help='Overwrite existing skill in skillset.yaml')
+@click.option('--name', 'custom_name', help='Override skill name from SKILL.md frontmatter')
+@click.option('--file', 'skillset_file', default='skillset.yaml', help='Path to skillset file')
+def add(
+    source: str,
+    is_global: bool,
+    scope: str,
+    force: bool,
+    custom_name: str,
+    skillset_file: str
+) -> None:
+    """Add a skill from source to skillset.yaml.
+
+    SOURCE is a skill source in format:
+
+    \b
+      github:owner/repo[/path]   - GitHub repository
+      local:/path/to/skill       - Local filesystem
+
+    \b
+    Examples:
+      asma add github:anthropics/skills/skills/frontend-design
+      asma add local:~/my-skills/custom-skill --global
+      asma add github:owner/repo/skill --force --name my-skill
+    """
+    import os
+    from asma.core.skill_fetcher import SkillFetcher
+    from asma.core.skillset_writer import SkillsetWriter, SkillEntry
+    from asma.models.skill import SkillScope
+
+    # Determine scope (--global flag takes precedence)
+    if is_global:
+        target_scope = SkillScope.GLOBAL
+    elif scope:
+        target_scope = SkillScope.GLOBAL if scope == 'global' else SkillScope.PROJECT
+    else:
+        target_scope = SkillScope.PROJECT
+
+    skillset_path = Path(skillset_file)
+
+    # Check if skillset file exists
+    if not skillset_path.exists():
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"skillset.yaml not found: {skillset_path}"
+        )
+        click.echo("  Run 'asma init' to create one.")
+        raise click.Abort()
+
+    # Fetch metadata from source
+    click.echo(f"Fetching skill from {source}...")
+
+    github_token = os.environ.get("GITHUB_TOKEN")
+    fetcher = SkillFetcher(github_token=github_token)
+    result = fetcher.fetch_metadata(source)
+
+    if not result.success:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Failed to fetch skill: {result.error}"
+        )
+        raise click.Abort()
+
+    # Use custom name if provided, otherwise use name from frontmatter
+    skill_name = custom_name or result.name
+
+    click.echo(f"Found skill: {skill_name}")
+    if result.description:
+        click.echo(f"Description: {result.description}")
+
+    # Check if skill already exists
+    writer = SkillsetWriter(skillset_path)
+
+    if writer.skill_exists(skill_name, target_scope) and not force:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Skill '{skill_name}' already exists in {target_scope.value} scope."
+        )
+        click.echo("  Use --force to overwrite.")
+        raise click.Abort()
+
+    # Add skill to skillset.yaml
+    # Don't include version for local sources (local@checksum format)
+    version = None
+    if result.version and not result.version.startswith("local@"):
+        version = result.version
+
+    entry = SkillEntry(
+        name=skill_name,
+        source=source,
+        version=version
+    )
+
+    try:
+        writer.add_skill(entry, target_scope, force=force)
+    except Exception as e:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Failed to update skillset.yaml: {e}"
+        )
+        raise click.Abort()
+
+    # Success message
+    scope_display = "global" if target_scope == SkillScope.GLOBAL else "project"
+    click.echo(
+        click.style("✓ ", fg="green") +
+        f"Added '{skill_name}' to {scope_display} scope"
+    )
+    click.echo("  Run 'asma install' to install the skill.")
+
+
 if __name__ == "__main__":
     cli()

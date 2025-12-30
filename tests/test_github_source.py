@@ -567,6 +567,163 @@ class TestGitHubSourceHandlerEdgeCases:
             handler.resolve(skill)
 
 
+class TestGitHubAPIRedirect:
+    """Test GitHub API redirect behavior (302 responses)."""
+
+    def _create_tarball(self) -> bytes:
+        """Create a mock tarball with SKILL.md."""
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+            dir_info = tarfile.TarInfo(name="repo-main/")
+            dir_info.type = tarfile.DIRTYPE
+            dir_info.mode = 0o755
+            tar.addfile(dir_info)
+
+            skill_content = b"---\nname: redirect-test\ndescription: Test redirect\n---\n# Test"
+            skill_info = tarfile.TarInfo(name="repo-main/SKILL.md")
+            skill_info.size = len(skill_content)
+            skill_info.mode = 0o644
+            tar.addfile(skill_info, io.BytesIO(skill_content))
+
+        return tar_buffer.getvalue()
+
+    def test_download_follows_302_redirect(self, tmp_path, requests_mock):
+        """Test that download correctly follows 302 redirect from GitHub API.
+
+        GitHub's tarball endpoint returns a 302 redirect to codeload.github.com.
+        The requests library should follow this redirect automatically.
+        """
+        resolved = ResolvedSource(
+            version="main",
+            commit="abc123",
+            download_url="https://api.github.com/repos/owner/repo/tarball/main"
+        )
+
+        # Mock the 302 redirect (as GitHub API actually behaves)
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo/tarball/main",
+            status_code=302,
+            headers={
+                "Location": "https://codeload.github.com/owner/repo/legacy.tar.gz/main"
+            }
+        )
+
+        # Mock the actual tarball download from codeload.github.com
+        requests_mock.get(
+            "https://codeload.github.com/owner/repo/legacy.tar.gz/main",
+            content=self._create_tarball()
+        )
+
+        handler = GitHubSourceHandler(cache_dir=tmp_path / "cache")
+        result_path = handler.download(resolved)
+
+        # Should successfully download and extract
+        assert result_path.exists()
+        assert (result_path / "SKILL.md").exists()
+
+        # Verify both requests were made (redirect was followed)
+        assert requests_mock.call_count == 2
+        assert "api.github.com" in requests_mock.request_history[0].url
+        assert "codeload.github.com" in requests_mock.request_history[1].url
+
+    def test_download_follows_redirect_with_auth(self, tmp_path, requests_mock):
+        """Test that auth headers are preserved when following redirects."""
+        resolved = ResolvedSource(
+            version="v1.0.0",
+            commit="def456",
+            download_url="https://api.github.com/repos/owner/private-repo/tarball/v1.0.0"
+        )
+
+        # Mock the 302 redirect
+        requests_mock.get(
+            "https://api.github.com/repos/owner/private-repo/tarball/v1.0.0",
+            status_code=302,
+            headers={
+                "Location": "https://codeload.github.com/owner/private-repo/legacy.tar.gz/v1.0.0"
+            }
+        )
+
+        # Mock the actual tarball download
+        requests_mock.get(
+            "https://codeload.github.com/owner/private-repo/legacy.tar.gz/v1.0.0",
+            content=self._create_tarball()
+        )
+
+        handler = GitHubSourceHandler(
+            token="test-token-123",
+            cache_dir=tmp_path / "cache"
+        )
+        result_path = handler.download(resolved)
+
+        assert result_path.exists()
+
+        # First request should have auth header
+        first_request = requests_mock.request_history[0]
+        assert first_request.headers.get("Authorization") == "token test-token-123"
+
+    def test_download_multiple_redirects(self, tmp_path, requests_mock):
+        """Test handling of multiple sequential redirects."""
+        resolved = ResolvedSource(
+            version="main",
+            commit="ghi789",
+            download_url="https://api.github.com/repos/owner/repo/tarball/main"
+        )
+
+        # First redirect
+        requests_mock.get(
+            "https://api.github.com/repos/owner/repo/tarball/main",
+            status_code=302,
+            headers={"Location": "https://intermediate.github.com/redirect"}
+        )
+
+        # Second redirect
+        requests_mock.get(
+            "https://intermediate.github.com/redirect",
+            status_code=302,
+            headers={"Location": "https://codeload.github.com/owner/repo/tarball.tar.gz"}
+        )
+
+        # Final destination
+        requests_mock.get(
+            "https://codeload.github.com/owner/repo/tarball.tar.gz",
+            content=self._create_tarball()
+        )
+
+        handler = GitHubSourceHandler(cache_dir=tmp_path / "cache")
+        result_path = handler.download(resolved)
+
+        assert result_path.exists()
+        assert requests_mock.call_count == 3
+
+    def test_download_redirect_to_expired_url(self, tmp_path, requests_mock):
+        """Test handling when redirected URL has expired (GitHub private repos)."""
+        resolved = ResolvedSource(
+            version="main",
+            commit="jkl012",
+            download_url="https://api.github.com/repos/owner/private/tarball/main"
+        )
+
+        # Redirect to signed URL
+        requests_mock.get(
+            "https://api.github.com/repos/owner/private/tarball/main",
+            status_code=302,
+            headers={
+                "Location": "https://codeload.github.com/owner/private/tar.gz?token=EXPIRED"
+            }
+        )
+
+        # Expired URL returns 403
+        requests_mock.get(
+            "https://codeload.github.com/owner/private/tar.gz?token=EXPIRED",
+            status_code=403,
+            text="URL has expired"
+        )
+
+        handler = GitHubSourceHandler(cache_dir=tmp_path / "cache")
+        with pytest.raises(ConnectionError, match="Failed to download"):
+            handler.download(resolved)
+
+
 class TestVersionNotSpecified:
     """Test version/ref not specified behavior."""
 
