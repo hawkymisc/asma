@@ -24,7 +24,7 @@ class TestContextCommand:
             assert result.exit_code != 0 or "not found" in result.output.lower()
 
     def test_context_text_format(self):
-        """Test context command with default text format."""
+        """Test context command with default text format (basic fields only)."""
         runner = CliRunner()
 
         with runner.isolated_filesystem() as fs:
@@ -37,6 +37,7 @@ class TestContextCommand:
 name: test-skill
 description: A helpful test skill
 author: Test Author
+version: 1.0.0
 ---
 
 # Test Skill
@@ -56,6 +57,47 @@ author: Test Author
             lockfile.save(fs_path / "skillset.lock")
 
             result = runner.invoke(cli, ['context'])
+
+            assert result.exit_code == 0
+            assert "test-skill" in result.output
+            assert "A helpful test skill" in result.output
+            # Default mode shows basic fields only (name, description, version)
+            assert "author:" not in result.output
+
+    def test_context_verbose_shows_all_fields(self):
+        """Test context command with --verbose shows all fields."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem() as fs:
+            fs_path = Path(fs)
+
+            # Create skill directory with SKILL.md
+            skill_dir = fs_path / ".claude/skills/test-skill"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: A helpful test skill
+author: Test Author
+version: 1.0.0
+---
+
+# Test Skill
+""")
+
+            # Create lock file
+            lockfile = Lockfile()
+            lockfile.add_entry(LockEntry(
+                name="test-skill",
+                scope=SkillScope.PROJECT,
+                source="local:/path",
+                resolved_version="local@abc",
+                resolved_commit="abc123",
+                installed_at=datetime.now(),
+                checksum="sha256:test",
+            ))
+            lockfile.save(fs_path / "skillset.lock")
+
+            result = runner.invoke(cli, ['context', '--verbose'])
 
             assert result.exit_code == 0
             assert "test-skill" in result.output
