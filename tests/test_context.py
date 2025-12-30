@@ -270,3 +270,123 @@ This is a test skill.
 
         assert data["global"] == {}
         assert data["project"] == {}
+
+
+class TestContextExtractorFormatOptions:
+    """Tests for format options (indent, wrap_width, verbose, table)."""
+
+    @pytest.fixture
+    def extractor(self):
+        """Create a ContextExtractor instance."""
+        return ContextExtractor()
+
+    @pytest.fixture
+    def sample_contexts(self):
+        """Create sample contexts with various metadata."""
+        return [
+            SkillContext(
+                skill_name="test-skill",
+                scope=SkillScope.GLOBAL,
+                metadata={
+                    "name": "test-skill",
+                    "description": "A very long description that should be wrapped when the wrap width is set to a smaller value than the description length for testing purposes",
+                    "version": "1.0.0",
+                    "author": "Test Author",
+                    "tags": ["testing", "example"],
+                },
+                install_path=Path("/home/user/.claude/skills/test-skill"),
+            ),
+            SkillContext(
+                skill_name="another-skill",
+                scope=SkillScope.PROJECT,
+                metadata={
+                    "name": "another-skill",
+                    "description": "Project skill description",
+                    "version": "2.0.0",
+                },
+                install_path=Path(".claude/skills/another-skill"),
+            ),
+        ]
+
+    # format_text option tests
+
+    def test_format_text_with_custom_indent(self, extractor, sample_contexts):
+        """Test text formatting with custom indent."""
+        output = extractor.format_text(sample_contexts, indent=4)
+        lines = output.split('\n')
+        # Skill name line should be indented with 4 spaces
+        skill_lines = [line for line in lines if "test-skill:" in line]
+        assert len(skill_lines) > 0
+        assert skill_lines[0].startswith("    ")
+
+    def test_format_text_with_wrap_width(self, extractor, sample_contexts):
+        """Test text formatting with wrap width."""
+        output = extractor.format_text(sample_contexts, wrap_width=60)
+        lines = output.split('\n')
+        # All lines should be <= 60 characters
+        for line in lines:
+            assert len(line) <= 60, f"Line exceeds wrap width: '{line}' ({len(line)} chars)"
+
+    def test_format_text_default_shows_basic_fields(self, extractor, sample_contexts):
+        """Test that default text format shows only basic fields."""
+        output = extractor.format_text(sample_contexts, verbose=False)
+        # Should contain basic fields
+        assert "name:" in output
+        assert "description:" in output
+        assert "version:" in output
+        # Should NOT contain extra fields
+        assert "author:" not in output
+        assert "tags:" not in output
+
+    def test_format_text_verbose_shows_all_fields(self, extractor, sample_contexts):
+        """Test that verbose text format shows all fields."""
+        output = extractor.format_text(sample_contexts, verbose=True)
+        # Should contain all fields
+        assert "name:" in output
+        assert "description:" in output
+        assert "version:" in output
+        assert "author:" in output
+        assert "tags:" in output
+
+    # format_table tests
+
+    def test_format_table_basic(self, extractor, sample_contexts):
+        """Test basic table format output."""
+        output = extractor.format_table(sample_contexts)
+        # Should contain table headers
+        assert "Name" in output
+        assert "Scope" in output
+        assert "Description" in output
+        assert "Version" in output
+        # Should contain skill data
+        assert "test-skill" in output
+        assert "another-skill" in output
+
+    def test_format_table_empty(self, extractor):
+        """Test table format with empty contexts."""
+        output = extractor.format_table([])
+        # Headers should still be present
+        assert "Name" in output
+
+    def test_format_table_with_error(self, extractor):
+        """Test table format with error skill."""
+        contexts = [
+            SkillContext(
+                skill_name="error-skill",
+                scope=SkillScope.PROJECT,
+                metadata={},
+                install_path=Path(".claude/skills/error-skill"),
+                error="SKILL.md not found",
+            )
+        ]
+        output = extractor.format_table(contexts)
+        assert "error-skill" in output
+        # Error should be displayed somehow
+        assert "not found" in output.lower() or "error" in output.lower()
+
+    def test_format_table_verbose(self, extractor, sample_contexts):
+        """Test verbose table format shows additional columns."""
+        output = extractor.format_table(sample_contexts, verbose=True)
+        # Should have additional columns
+        assert "Author" in output
+        assert "Test Author" in output

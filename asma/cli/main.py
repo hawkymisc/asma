@@ -233,8 +233,37 @@ def check(scope: str, checksum: bool, quiet: bool) -> None:
 @cli.command()
 @click.argument('skill_name', required=False)
 @click.option('--scope', type=click.Choice(['global', 'project']), help='Filter by scope')
-@click.option('--format', 'output_format', type=click.Choice(['text', 'yaml', 'json']), default='text', help='Output format')
-def context(skill_name: str, scope: str, output_format: str) -> None:
+@click.option(
+    '--format', 'output_format',
+    type=click.Choice(['text', 'yaml', 'json', 'table']),
+    default='text',
+    help='Output format (text, yaml, json, table)'
+)
+@click.option(
+    '--wrap-width', 'wrap_width',
+    type=int,
+    default=None,
+    help='Text wrap width for descriptions (default: terminal width)'
+)
+@click.option(
+    '--indent',
+    type=int,
+    default=2,
+    help='Indentation width in spaces (default: 2)'
+)
+@click.option(
+    '--verbose', '-v',
+    is_flag=True,
+    help='Show all metadata fields (default: name, description, version only)'
+)
+def context(
+    skill_name: str,
+    scope: str,
+    output_format: str,
+    wrap_width: int,
+    indent: int,
+    verbose: bool,
+) -> None:
     """Display context (SKILL.md frontmatter) of installed skills."""
     from asma.models.lock import Lockfile
     from asma.models.skill import SkillScope
@@ -297,8 +326,15 @@ def context(skill_name: str, scope: str, output_format: str) -> None:
         click.echo(extractor.format_yaml(contexts))
     elif output_format == 'json':
         click.echo(extractor.format_json(contexts))
+    elif output_format == 'table':
+        click.echo(extractor.format_table(contexts, verbose=verbose))
     else:
-        click.echo(extractor.format_text(contexts))
+        click.echo(extractor.format_text(
+            contexts,
+            indent=indent,
+            wrap_width=wrap_width,
+            verbose=verbose,
+        ))
 
 
 @cli.command()
