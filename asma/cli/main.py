@@ -135,6 +135,173 @@ def list(scope: str) -> None:
 
 
 @cli.command()
+@click.option('--scope', type=click.Choice(['global', 'project']), help='Check only specified scope')
+@click.option('--checksum', is_flag=True, help='Also verify SKILL.md checksums')
+@click.option('--quiet', is_flag=True, help='Only show errors')
+def check(scope: str, checksum: bool, quiet: bool) -> None:
+    """Check that installed skills exist on filesystem."""
+    import sys
+    from asma.models.lock import Lockfile
+    from asma.models.skill import SkillScope
+    from asma.core.checker import SkillChecker, CheckResult
+
+    # Load lock file
+    lock_path = Path("skillset.lock")
+
+    if not lock_path.exists():
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            "skillset.lock not found. Run 'asma install' first."
+        )
+        sys.exit(2)
+
+    try:
+        lockfile = Lockfile.load(lock_path)
+    except Exception as e:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Failed to load skillset.lock: {e}"
+        )
+        sys.exit(2)
+
+    # Filter skills by scope if specified
+    skills = lockfile.skills
+    if scope:
+        target_scope = SkillScope.GLOBAL if scope == 'global' else SkillScope.PROJECT
+        skills = {
+            key: entry for key, entry in skills.items()
+            if entry.scope == target_scope
+        }
+
+    if not skills:
+        if not quiet:
+            click.echo("No skills to check")
+        sys.exit(0)
+
+    # Check skills
+    checker = SkillChecker()
+    results: list[CheckResult] = []
+
+    if not quiet:
+        msg = "Checking installed skills"
+        if checksum:
+            msg += " (with checksum)"
+        click.echo(f"{msg}...")
+
+    for key, entry in skills.items():
+        result = checker.check_skill(entry, verify_checksum=checksum)
+        results.append(result)
+
+        # Display result
+        if result.status == "ok":
+            if not quiet:
+                click.echo(
+                    click.style("✓ ", fg="green") +
+                    f"{entry.name} ({entry.scope.value}) - OK"
+                )
+        elif result.status == "checksum_mismatch":
+            click.echo(
+                click.style("! ", fg="yellow") +
+                f"{entry.name} ({entry.scope.value}) - checksum mismatch"
+            )
+        else:
+            click.echo(
+                click.style("✗ ", fg="red") +
+                f"{entry.name} ({entry.scope.value}) - {result.error_message or result.status}"
+            )
+
+    # Summary
+    ok_count = sum(1 for r in results if r.status == "ok")
+    missing_count = sum(1 for r in results if r.status in ("missing", "broken_symlink"))
+    mismatch_count = sum(1 for r in results if r.status == "checksum_mismatch")
+    total = len(results)
+
+    if not quiet:
+        click.echo()
+        click.echo(f"Checked: {ok_count}/{total} skills OK")
+        if missing_count > 0:
+            click.echo(f"Missing: {missing_count} skill(s) (run 'asma install' to fix)")
+        if mismatch_count > 0:
+            click.echo(f"Modified: {mismatch_count} skill(s) (reinstall with 'asma install --force')")
+
+    # Exit code
+    if missing_count > 0 or mismatch_count > 0:
+        sys.exit(1)
+    sys.exit(0)
+
+
+@cli.command()
+@click.argument('skill_name', required=False)
+@click.option('--scope', type=click.Choice(['global', 'project']), help='Filter by scope')
+@click.option('--format', 'output_format', type=click.Choice(['text', 'yaml', 'json']), default='text', help='Output format')
+def context(skill_name: str, scope: str, output_format: str) -> None:
+    """Display context (SKILL.md frontmatter) of installed skills."""
+    from asma.models.lock import Lockfile
+    from asma.models.skill import SkillScope
+    from asma.core.context import ContextExtractor, SkillContext
+
+    # Load lock file
+    lock_path = Path("skillset.lock")
+
+    if not lock_path.exists():
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            "skillset.lock not found. Run 'asma install' first."
+        )
+        raise click.Abort()
+
+    try:
+        lockfile = Lockfile.load(lock_path)
+    except Exception as e:
+        click.echo(
+            click.style("Error: ", fg="red", bold=True) +
+            f"Failed to load skillset.lock: {e}"
+        )
+        raise click.Abort()
+
+    # Filter skills by scope if specified
+    skills = lockfile.skills
+    if scope:
+        target_scope = SkillScope.GLOBAL if scope == 'global' else SkillScope.PROJECT
+        skills = {
+            key: entry for key, entry in skills.items()
+            if entry.scope == target_scope
+        }
+
+    # Filter by skill name if specified
+    if skill_name:
+        skills = {
+            key: entry for key, entry in skills.items()
+            if entry.name == skill_name
+        }
+
+    if not skills:
+        if output_format == 'json':
+            click.echo('{"global": {}, "project": {}}')
+        elif output_format == 'yaml':
+            click.echo('global: {}\nproject: {}')
+        else:
+            click.echo("No skills found")
+        return
+
+    # Extract context from each skill
+    extractor = ContextExtractor()
+    contexts: list[SkillContext] = []
+
+    for key, entry in skills.items():
+        ctx = extractor.extract_context(entry)
+        contexts.append(ctx)
+
+    # Output in requested format
+    if output_format == 'yaml':
+        click.echo(extractor.format_yaml(contexts))
+    elif output_format == 'json':
+        click.echo(extractor.format_json(contexts))
+    else:
+        click.echo(extractor.format_text(contexts))
+
+
+@cli.command()
 @click.option('--file', 'skillset_file', default='skillset.yaml', help='Path to skillset file')
 @click.option('--scope', type=click.Choice(['global', 'project']), help='Install only specified scope')
 @click.option('--force', is_flag=True, help='Reinstall even if already installed')
