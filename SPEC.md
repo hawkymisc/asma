@@ -458,12 +458,12 @@ Validation: 3/4 passed
 
 ---
 
-#### `asma verify`
-**Purpose**: Verify that installed skills actually exist on the filesystem
+#### `asma check`
+**Purpose**: Check that installed skills actually exist on the filesystem
 
 **Usage**:
 ```bash
-asma verify [options]
+asma check [options]
 ```
 
 **Options**:
@@ -487,22 +487,22 @@ asma verify [options]
 
 **Example**:
 ```bash
-# Verify all skills
-asma verify
+# Check all skills
+asma check
 
-# Verify with checksum validation
-asma verify --checksum
+# Check with checksum validation
+asma check --checksum
 
 # CI-friendly quiet mode
-asma verify --quiet || echo "Skills missing!"
+asma check --quiet || echo "Skills missing!"
 
-# Verify only global scope
-asma verify --scope global
+# Check only global scope
+asma check --scope global
 ```
 
 **Output**:
 ```
-Verifying installed skills...
+Checking installed skills...
 ✓ document-analyzer (global) - OK
 ✓ python-expert (global) - OK
 ✗ api-tester (project) - not found
@@ -514,7 +514,7 @@ Missing: 2 skills (run 'asma install' to fix)
 
 **With --checksum**:
 ```
-Verifying installed skills (with checksum)...
+Checking installed skills (with checksum)...
 ✓ document-analyzer (global) - OK
 ! python-expert (global) - checksum mismatch
 ✗ api-tester (project) - not found
