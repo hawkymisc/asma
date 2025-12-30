@@ -17,6 +17,8 @@ A declarative package manager for Claude Agent Skills, inspired by vim-plug and 
 - ✅ `asma init` - Initialize skillset.yaml
 - ✅ `asma install` - Install skills from skillset
 - ✅ `asma list` - List installed skills
+- ✅ `asma check` - Check installed skills exist on filesystem
+- ✅ `asma context` - Display SKILL.md frontmatter of installed skills
 - ✅ `asma version` - Show version
 - ✅ Local filesystem sources (`local:`)
 - ✅ GitHub sources (`github:`)
@@ -243,6 +245,84 @@ Project Skills:
     Version: local@abc123
 ```
 
+### `asma check`
+Check that installed skills exist on the filesystem.
+
+**Options**:
+- `--scope <global|project>` - Check only specified scope
+- `--checksum` - Also verify SKILL.md checksums
+- `--quiet` - Only show errors
+
+**Exit codes**:
+- `0` - All skills OK
+- `1` - Some skills missing or modified
+- `2` - Error (lock file not found, etc.)
+
+**Examples**:
+```bash
+# Check all installed skills
+asma check
+
+# Check only project skills
+asma check --scope project
+
+# Verify checksums
+asma check --checksum
+
+# Quiet mode (only show errors)
+asma check --quiet
+```
+
+**Output Example**:
+```
+Checking installed skills...
+✓ document-analyzer (global) - OK
+✓ test-runner (project) - OK
+
+Checked: 2/2 skills OK
+```
+
+### `asma context`
+Display SKILL.md frontmatter (metadata) of installed skills.
+
+**Arguments**:
+- `SKILL_NAME` - (optional) Show context for a specific skill only
+
+**Options**:
+- `--scope <global|project>` - Filter by scope
+- `--format <text|yaml|json>` - Output format (default: text)
+
+**Examples**:
+```bash
+# Show all skill contexts
+asma context
+
+# Show context for a specific skill
+asma context document-analyzer
+
+# Output as YAML
+asma context --format yaml
+
+# Output as JSON
+asma context --format json
+
+# Filter by scope
+asma context --scope global
+```
+
+**Output Example** (text format):
+```
+Global Skills:
+  document-analyzer:
+    name: document-analyzer
+    description: Analyze and summarize documents
+
+Project Skills:
+  test-runner:
+    name: test-runner
+    description: Run tests and report results
+```
+
 ### `asma version`
 Show asma version.
 
@@ -381,8 +461,8 @@ This project follows Kent Beck's Test-Driven Development methodology:
 ### 🚧 Next Steps
 - [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
 - [x] `asma list` command - **COMPLETED** ✅
-- [ ] `asma check` command - Check installed skills exist on filesystem
-- [ ] `asma context` command - Display SKILL.md frontmatter of installed skills
+- [x] `asma check` command - Check installed skills exist on filesystem - **COMPLETED** ✅
+- [x] `asma context` command - Display SKILL.md frontmatter of installed skills - **COMPLETED** ✅
 - [ ] `asma update` command
 - [ ] `asma uninstall` command
 - [ ] Git source handler (`git:https://...`)
