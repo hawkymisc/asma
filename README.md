@@ -103,7 +103,8 @@ Set `GITHUB_TOKEN` environment variable for private repositories.
 
 ### Command Options
 
-**asma add**
+#### asma add
+
 ```bash
 asma add github:owner/repo/path   # Add skill from GitHub
 asma add local:~/my-skills/skill  # Add skill from local path
@@ -112,7 +113,8 @@ asma add github:owner/repo --name custom  # Use custom name
 asma add github:owner/repo --force        # Overwrite existing
 ```
 
-**asma install**
+#### asma install
+
 ```bash
 asma install                      # Install all skills
 asma install --scope global       # Install only global skills
@@ -120,20 +122,23 @@ asma install --force              # Force reinstall
 asma install --file custom.yaml   # Use alternative config file
 ```
 
-**asma list**
+#### asma list
+
 ```bash
 asma list                    # List all installed skills
 asma list --scope project    # Filter by scope
 ```
 
-**asma check**
+#### asma check
+
 ```bash
 asma check                   # Check all skills
 asma check --checksum        # Also verify checksums
 asma check --quiet           # Only show errors
 ```
 
-**asma context**
+#### asma context
+
 ```bash
 asma context                       # Show all skill metadata
 asma context my-skill              # Show specific skill
