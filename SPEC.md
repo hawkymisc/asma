@@ -458,6 +458,177 @@ Validation: 3/4 passed
 
 ---
 
+#### `asma verify`
+**Purpose**: Verify that installed skills actually exist on the filesystem
+
+**Usage**:
+```bash
+asma verify [options]
+```
+
+**Options**:
+- `--scope <global|project>`: Verify only specified scope
+- `--checksum`: Also verify SKILL.md checksum matches lock file
+- `--quiet`: Only show errors (for CI/scripts)
+
+**Behavior**:
+1. Load skillset.lock
+2. For each skill entry:
+   - Check if install directory exists
+   - For symlinks: verify target exists
+   - With `--checksum`: verify SKILL.md SHA256 matches recorded checksum
+3. Display verification summary
+4. Exit with non-zero code if any skills are missing/broken
+
+**Exit Codes**:
+- `0`: All skills verified successfully
+- `1`: One or more skills failed verification
+- `2`: skillset.lock not found
+
+**Example**:
+```bash
+# Verify all skills
+asma verify
+
+# Verify with checksum validation
+asma verify --checksum
+
+# CI-friendly quiet mode
+asma verify --quiet || echo "Skills missing!"
+
+# Verify only global scope
+asma verify --scope global
+```
+
+**Output**:
+```
+Verifying installed skills...
+✓ document-analyzer (global) - OK
+✓ python-expert (global) - OK
+✗ api-tester (project) - not found
+✗ test-runner (project) - symlink broken
+
+Verified: 2/4 skills
+Missing: 2 skills (run 'asma install' to fix)
+```
+
+**With --checksum**:
+```
+Verifying installed skills (with checksum)...
+✓ document-analyzer (global) - OK
+! python-expert (global) - checksum mismatch
+✗ api-tester (project) - not found
+
+Verified: 1/4 skills
+Modified: 1 skill (reinstall with 'asma install --force')
+Missing: 1 skill (run 'asma install' to fix)
+```
+
+---
+
+#### `asma context`
+**Purpose**: Display context (SKILL.md frontmatter) of installed skills
+
+**Usage**:
+```bash
+asma context [skill-name] [options]
+```
+
+**Arguments**:
+- `skill-name`: Optional. Show context for specific skill only
+
+**Options**:
+- `--scope <global|project>`: Filter by scope
+- `--format <text|yaml|json>`: Output format (default: text)
+
+**Behavior**:
+1. Load skillset.lock
+2. For each installed skill:
+   - Read SKILL.md from installed location
+   - Parse YAML frontmatter
+   - Collect all metadata fields
+3. Display in specified format
+
+**Example**:
+```bash
+# Show all skill contexts
+asma context
+
+# Show specific skill
+asma context document-analyzer
+
+# JSON output for scripting
+asma context --format json
+
+# YAML output
+asma context --format yaml
+
+# Only project skills
+asma context --scope project
+```
+
+**Output (text format)**:
+```
+Installed Skills Context:
+
+Global Skills:
+  document-analyzer:
+    name: document-analyzer
+    description: Analyzes documents for key information and summaries
+    author: Anthropic
+    version: 1.0.0
+
+  python-expert:
+    name: python-expert
+    description: Expert Python programmer with best practices
+
+Project Skills:
+  test-runner:
+    name: test-runner
+    description: Runs tests and reports results
+    requires: pytest
+```
+
+**Output (yaml format)**:
+```yaml
+global:
+  document-analyzer:
+    name: document-analyzer
+    description: Analyzes documents for key information and summaries
+    author: Anthropic
+    version: 1.0.0
+  python-expert:
+    name: python-expert
+    description: Expert Python programmer with best practices
+project:
+  test-runner:
+    name: test-runner
+    description: Runs tests and reports results
+    requires: pytest
+```
+
+**Output (json format)**:
+```json
+{
+  "global": {
+    "document-analyzer": {
+      "name": "document-analyzer",
+      "description": "Analyzes documents for key information and summaries",
+      "author": "Anthropic",
+      "version": "1.0.0"
+    }
+  },
+  "project": {
+    "test-runner": {
+      "name": "test-runner",
+      "description": "Runs tests and reports results"
+    }
+  }
+}
+```
+
+---
+
 #### `asma info`
 **Purpose**: Show detailed information about a skill
 

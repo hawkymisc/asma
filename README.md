@@ -372,6 +372,8 @@ This project follows Kent Beck's Test-Driven Development methodology:
 ### 🚧 Next Steps
 - [x] Lock file management (`skillset.lock`) - **COMPLETED** ✅
 - [x] `asma list` command - **COMPLETED** ✅
+- [ ] `asma verify` command - Verify installed skills exist on filesystem
+- [ ] `asma context` command - Display SKILL.md frontmatter of installed skills
 - [ ] `asma update` command
 - [ ] `asma uninstall` command
 - [ ] Git source handler (`git:https://...`)

@@ -37,6 +37,7 @@ htmlcov/
 # asma specific
 .asma/
 skillset.lock
+PLAN.md
 
 # OS
 .DS_Store
