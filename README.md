@@ -94,6 +94,7 @@ Set `GITHUB_TOKEN` environment variable for private repositories.
 | Command | Description |
 |---------|-------------|
 | `asma init` | Create skillset.yaml template |
+| `asma add` | Add a skill from source to skillset.yaml |
 | `asma install` | Install skills from skillset.yaml |
 | `asma list` | List installed skills |
 | `asma check` | Verify installed skills exist |
@@ -101,6 +102,15 @@ Set `GITHUB_TOKEN` environment variable for private repositories.
 | `asma version` | Show asma version |
 
 ### Command Options
+
+**asma add**
+```bash
+asma add github:owner/repo/path   # Add skill from GitHub
+asma add local:~/my-skills/skill  # Add skill from local path
+asma add github:owner/repo --global       # Add to global scope
+asma add github:owner/repo --name custom  # Use custom name
+asma add github:owner/repo --force        # Overwrite existing
+```
 
 **asma install**
 ```bash
