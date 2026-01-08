@@ -2,6 +2,7 @@
 import hashlib
 import re
 import shutil
+import sys
 import tarfile
 import tempfile
 import warnings
@@ -68,6 +69,77 @@ class GitHubSourceHandler(SourceHandler):
         self.cache_dir = cache_dir or Path.home() / ".cache" / "asma" / "github"
         self.strict = strict
         self._pending_subpath: Optional[str] = None
+
+    def _safe_extract_tarball(self, tar: tarfile.TarFile, extract_dir: Path) -> None:
+        """
+        Safely extract tarball with path traversal protection.
+
+        This method provides backward compatibility for Python 3.8-3.11
+        while using the secure filter parameter on Python 3.12+.
+
+        Args:
+            tar: Open tarfile object
+            extract_dir: Directory to extract to
+
+        Raises:
+            ValueError: If tarball contains dangerous paths or symlinks
+        """
+        if sys.version_info >= (3, 12):
+            # Python 3.12+: use built-in data filter for secure extraction
+            tar.extractall(path=extract_dir, filter="data")
+        else:
+            # Python 3.8-3.11: manual validation for security
+            safe_members = []
+            extract_dir_resolved = extract_dir.resolve()
+
+            for member in tar.getmembers():
+                # Resolve member path and ensure it's within extract_dir
+                member_path = (extract_dir / member.name).resolve()
+
+                # Check for path traversal
+                try:
+                    member_path.relative_to(extract_dir_resolved)
+                except ValueError:
+                    raise ValueError(
+                        f"Attempted path traversal in tar archive: {member.name}"
+                    )
+
+                # Check for absolute paths
+                if Path(member.name).is_absolute():
+                    raise ValueError(
+                        f"Absolute path in tar archive: {member.name}"
+                    )
+
+                # Validate symlinks and hardlinks
+                if member.issym() or member.islnk():
+                    link_target = Path(member.linkname)
+
+                    # Reject absolute link targets
+                    if link_target.is_absolute():
+                        raise ValueError(
+                            f"Absolute symlink target in tar: {member.name} -> {member.linkname}"
+                        )
+
+                    # Reject links with path traversal
+                    if ".." in link_target.parts:
+                        raise ValueError(
+                            f"Path traversal in symlink: {member.name} -> {member.linkname}"
+                        )
+
+                    # Resolve link target and ensure it's within extract_dir
+                    link_dest = (extract_dir / member.name).parent / member.linkname
+                    try:
+                        link_dest.resolve().relative_to(extract_dir_resolved)
+                    except ValueError:
+                        raise ValueError(
+                            f"Symlink target outside extraction directory: "
+                            f"{member.name} -> {member.linkname}"
+                        )
+
+                safe_members.append(member)
+
+            # Extract only validated members
+            tar.extractall(path=extract_dir, members=safe_members)
 
     def _get_headers(self) -> dict:
         """Get headers for GitHub API requests."""
@@ -221,10 +293,14 @@ class GitHubSourceHandler(SourceHandler):
         extract_dir.mkdir(parents=True, exist_ok=True)
         try:
             with tarfile.open(fileobj=response.raw, mode="r|gz") as tar:
-                tar.extractall(path=extract_dir, filter="data")
+                self._safe_extract_tarball(tar, extract_dir)
         except tarfile.TarError as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
             raise ValueError(f"Failed to extract tarball: {e}")
+        except ValueError as e:
+            # Security validation error
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            raise
 
         return self._get_skill_path(extract_dir)
 
