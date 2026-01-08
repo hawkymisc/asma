@@ -79,11 +79,21 @@ class SkillInstaller:
                 )
 
             # Remove existing if force
-            if install_path.exists():
+            # Use try-except for atomic operation to mitigate TOCTOU vulnerability
+            try:
                 if install_path.is_symlink():
                     install_path.unlink()
-                else:
+                elif install_path.is_dir():
                     shutil.rmtree(install_path)
+                elif install_path.exists():
+                    install_path.unlink()
+            except OSError as e:
+                return InstallResult(
+                    success=False,
+                    skill_name=skill.name,
+                    install_path=install_path,
+                    error=f"Failed to remove existing installation: {e}"
+                )
 
             # Create parent directory
             install_path.parent.mkdir(parents=True, exist_ok=True)

@@ -50,6 +50,12 @@ class GitHubSourceHandler(SourceHandler):
 
     API_BASE = "https://api.github.com"
 
+    # Security limits for tar extraction (tar bomb protection)
+    MAX_EXTRACT_SIZE = 500 * 1024 * 1024  # 500 MB total
+    MAX_FILE_COUNT = 10000  # Maximum number of files
+    MAX_SINGLE_FILE_SIZE = 100 * 1024 * 1024  # 100 MB per file
+    MAX_FILENAME_LENGTH = 255  # Standard filesystem limit
+
     def __init__(
         self,
         token: Optional[str] = None,
@@ -72,27 +78,113 @@ class GitHubSourceHandler(SourceHandler):
 
     def _safe_extract_tarball(self, tar: tarfile.TarFile, extract_dir: Path) -> None:
         """
-        Safely extract tarball with path traversal protection.
+        Safely extract tarball with comprehensive security checks.
 
         This method provides backward compatibility for Python 3.8-3.11
         while using the secure filter parameter on Python 3.12+.
+
+        Protection against:
+        - Path traversal attacks (CVE-2007-4559)
+        - Tar bomb attacks (compression bombs)
+        - Device files and special files
+        - Excessively long filenames
+        - Malicious symlinks
 
         Args:
             tar: Open tarfile object
             extract_dir: Directory to extract to
 
         Raises:
-            ValueError: If tarball contains dangerous paths or symlinks
+            ValueError: If tarball contains dangerous content or exceeds limits
         """
         if sys.version_info >= (3, 12):
             # Python 3.12+: use built-in data filter for secure extraction
+            # Still need to check for tar bomb even with filter
+            total_size = 0
+            file_count = 0
+
+            for member in tar.getmembers():
+                # Tar bomb protection: check file count
+                file_count += 1
+                if file_count > self.MAX_FILE_COUNT:
+                    raise ValueError(
+                        f"Tar archive contains too many files (>{self.MAX_FILE_COUNT}). "
+                        f"Possible tar bomb attack."
+                    )
+
+                # Tar bomb protection: check individual file size
+                if member.size > self.MAX_SINGLE_FILE_SIZE:
+                    raise ValueError(
+                        f"File too large in tar: {member.name} ({member.size} bytes, "
+                        f"max {self.MAX_SINGLE_FILE_SIZE}). Possible tar bomb attack."
+                    )
+
+                # Tar bomb protection: check total extracted size
+                total_size += member.size
+                if total_size > self.MAX_EXTRACT_SIZE:
+                    raise ValueError(
+                        f"Total extracted size exceeds limit ({total_size} bytes, "
+                        f"max {self.MAX_EXTRACT_SIZE}). Possible tar bomb attack."
+                    )
+
             tar.extractall(path=extract_dir, filter="data")
         else:
             # Python 3.8-3.11: manual validation for security
             safe_members = []
             extract_dir_resolved = extract_dir.resolve()
+            total_size = 0
+            file_count = 0
 
             for member in tar.getmembers():
+                # Tar bomb protection: check file count
+                file_count += 1
+                if file_count > self.MAX_FILE_COUNT:
+                    raise ValueError(
+                        f"Tar archive contains too many files (>{self.MAX_FILE_COUNT}). "
+                        f"Possible tar bomb attack."
+                    )
+
+                # Tar bomb protection: check individual file size
+                if member.size > self.MAX_SINGLE_FILE_SIZE:
+                    raise ValueError(
+                        f"File too large in tar: {member.name} ({member.size} bytes, "
+                        f"max {self.MAX_SINGLE_FILE_SIZE}). Possible tar bomb attack."
+                    )
+
+                # Tar bomb protection: check total extracted size
+                total_size += member.size
+                if total_size > self.MAX_EXTRACT_SIZE:
+                    raise ValueError(
+                        f"Total extracted size exceeds limit ({total_size} bytes, "
+                        f"max {self.MAX_EXTRACT_SIZE}). Possible tar bomb attack."
+                    )
+
+                # Filename length check
+                if len(member.name) > self.MAX_FILENAME_LENGTH:
+                    raise ValueError(
+                        f"Filename too long in tar: {member.name[:50]}... "
+                        f"({len(member.name)} chars, max {self.MAX_FILENAME_LENGTH})"
+                    )
+
+                # Check for null bytes in filename
+                if '\0' in member.name:
+                    raise ValueError(f"Null byte in filename: {member.name}")
+
+                # Check for device files and FIFOs
+                if member.isdev():
+                    raise ValueError(
+                        f"Device file not allowed in tar: {member.name}"
+                    )
+
+                if member.isfifo():
+                    raise ValueError(
+                        f"FIFO (named pipe) not allowed in tar: {member.name}"
+                    )
+
+                # Remove setuid/setgid bits for security
+                if member.mode & 0o6000:  # Check for setuid (4000) or setgid (2000)
+                    member.mode &= 0o1777  # Remove setuid/setgid, keep other bits
+
                 # Resolve member path and ensure it's within extract_dir
                 member_path = (extract_dir / member.name).resolve()
 
